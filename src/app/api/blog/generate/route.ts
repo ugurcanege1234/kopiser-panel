@@ -89,6 +89,67 @@ async function generateContent(anthropic: Anthropic, systemPrompt: string): Prom
   return (response.content[0] as { text: string }).text.trim();
 }
 
+async function generateImagePrompt(anthropic: Anthropic, topic: string, platform: string): Promise<string> {
+  const response = await anthropic.messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 200,
+    messages: [{
+      role: "user",
+      content: `Write a short English image generation prompt for: "${topic}"
+Context: Turkish office copier/printer rental company, professional B2B.
+Platform: ${platform}
+Requirements:
+- Professional office setting
+- Modern multifunction printer/copier machine
+- Clean, corporate aesthetic
+- Good lighting, photorealistic
+- No text in image
+- Max 2 sentences
+Output: Just the prompt, nothing else.`
+    }],
+  });
+  return (response.content[0] as { text: string }).text.trim();
+}
+
+async function generateGeminiImage(imagePrompt: string): Promise<string | null> {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey) return null;
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${geminiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: imagePrompt }] }],
+          generationConfig: { responseModalities: ["IMAGE"] },
+        }),
+      }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const part = data.candidates?.[0]?.content?.parts?.find((p: { inlineData?: { data: string } }) => p.inlineData);
+    if (!part?.inlineData?.data) return null;
+    return part.inlineData.data; // base64 PNG
+  } catch {
+    return null;
+  }
+}
+
+async function uploadImageToSupabase(base64: string, filename: string): Promise<string | null> {
+  try {
+    const buffer = Buffer.from(base64, "base64");
+    const { error } = await supabase.storage
+      .from("blog-images")
+      .upload(filename, buffer, { contentType: "image/png", upsert: true });
+    if (error) return null;
+    const { data } = supabase.storage.from("blog-images").getPublicUrl(filename);
+    return data.publicUrl;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "ANTHROPIC_API_KEY tanımlı değil" }, { status: 500 });
@@ -96,14 +157,13 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const siteFilter: string | null = body.site || null;
   const customTopic: string | null = body.topic || null;
-  const platformFilter: string | null = body.platform || null; // "all" | "blog" | "social"
+  const platformFilter: string | null = body.platform || null;
   const mode = platformFilter || "all";
 
   const anthropic = new Anthropic({ apiKey });
   const today = new Date();
   const dayIndex = today.getDate() % TOPICS.length;
 
-  // Zayıf/düşen kelimeleri çek
   const { data: weakKeywords } = await supabase
     .from("seo_keywords")
     .select("keyword, site, position")
@@ -111,7 +171,6 @@ export async function POST(req: NextRequest) {
     .order("position", { ascending: true })
     .limit(20);
 
-  // Sırasız kelimeler de dahil et
   const { data: nullKeywords } = await supabase
     .from("seo_keywords")
     .select("keyword, site, position")
@@ -119,10 +178,9 @@ export async function POST(req: NextRequest) {
     .limit(10);
 
   const allWeakKeywords = [...(weakKeywords || []), ...(nullKeywords || [])];
-
   const results = [];
 
-  // BLOG içerikleri (her iki site için)
+  // BLOG içerikleri
   if (mode === "all" || mode === "blog") {
     const sitesToProcess = siteFilter ? SITES.filter(s => s.site === siteFilter) : SITES;
 
@@ -162,6 +220,15 @@ BAŞLIK: [başlık]
         const title = titleMatch ? titleMatch[1].trim() : topic;
         const content = contentMatch ? contentMatch[1].trim() : text;
 
+        // Görsel üret
+        let imageUrl: string | null = null;
+        const imgPrompt = await generateImagePrompt(anthropic, topic, "blog");
+        const base64 = await generateGeminiImage(imgPrompt);
+        if (base64) {
+          const filename = `blog-${Date.now()}-${i}.png`;
+          imageUrl = await uploadImageToSupabase(base64, filename);
+        }
+
         const scheduledAt = new Date(today);
         scheduledAt.setHours(10 + i * 2, 0, 0, 0);
 
@@ -173,9 +240,10 @@ BAŞLIK: [başlık]
           content_text: content,
           notes: `Site: ${site.site} | ${siteWeakKw ? `SEO hedef: "${siteWeakKw.keyword}"` : "Genel konu"} | AI`,
           assigned_to: "AI",
+          image_url: imageUrl,
         }]);
 
-        results.push({ type: "blog", site: site.site, success: !error, title });
+        results.push({ type: "blog", site: site.site, success: !error, title, imageUrl: !!imageUrl });
       } catch (err) {
         results.push({ type: "blog", site: site.site, success: false, error: String(err) });
       }
@@ -184,11 +252,21 @@ BAŞLIK: [başlık]
 
   // SOSYAL MEDYA içerikleri
   if (mode === "all" || mode === "social") {
-    // Genel konuyu belirle (zayıf kelime veya günlük konu)
     const generalWeakKw = allWeakKeywords[dayIndex % Math.max(allWeakKeywords.length, 1)];
     const socialTopic = customTopic || (generalWeakKw
       ? `${generalWeakKw.keyword} — fotokopi kiralama avantajları`
       : TOPICS[(dayIndex + 2) % TOPICS.length]);
+
+    // Sosyal medya için tek görsel üret (Instagram için)
+    let socialImageUrl: string | null = null;
+    try {
+      const imgPrompt = await generateImagePrompt(anthropic, socialTopic, "Instagram");
+      const base64 = await generateGeminiImage(imgPrompt);
+      if (base64) {
+        const filename = `social-${Date.now()}.png`;
+        socialImageUrl = await uploadImageToSupabase(base64, filename);
+      }
+    } catch { /* görsel opsiyonel */ }
 
     for (let i = 0; i < SOCIAL_PLATFORMS.length; i++) {
       const sp = SOCIAL_PLATFORMS[i];
@@ -205,9 +283,10 @@ BAŞLIK: [başlık]
           content_text: content,
           notes: `AI tarafından oluşturuldu | Konu: ${socialTopic.slice(0, 80)}`,
           assigned_to: "AI",
+          image_url: sp.platform === "Instagram" ? socialImageUrl : null,
         }]);
 
-        results.push({ type: "social", platform: sp.platform, success: !error });
+        results.push({ type: "social", platform: sp.platform, success: !error, imageUrl: sp.platform === "Instagram" && !!socialImageUrl });
       } catch (err) {
         results.push({ type: "social", platform: sp.platform, success: false, error: String(err) });
       }

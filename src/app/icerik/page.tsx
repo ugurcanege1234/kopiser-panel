@@ -13,6 +13,7 @@ type ContentItem = {
   content_text: string | null;
   notes: string | null;
   assigned_to: string | null;
+  image_url: string | null;
 };
 
 const PLATFORMS = ["Instagram", "TikTok", "Blog", "Facebook", "LinkedIn", "Diğer"];
@@ -155,9 +156,15 @@ export default function Icerik() {
             const st = statusStyle[item.status] || { bg: "#F1F5F9", color: "#64748B" };
             return (
               <div key={item.id} className="rounded-xl flex flex-col justify-between"
-                style={{ backgroundColor: "#fff", border: "1px solid #E5EAF0", padding: "16px 18px",
+                style={{ backgroundColor: "#fff", border: "1px solid #E5EAF0", overflow: "hidden",
                   boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.06)", minHeight: 160 }}>
-                <div>
+                {item.image_url && (
+                  <div style={{ width: "100%", height: 160, overflow: "hidden", backgroundColor: "#F7F9FC" }}>
+                    <img src={item.image_url} alt={item.title}
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  </div>
+                )}
+                <div style={{ padding: "16px 18px", flex: 1 }}>
                   <div className="flex justify-between items-start mb-2">
                     <span style={{ fontSize: 11, fontWeight: 700, color: "#C8102E", textTransform: "uppercase", letterSpacing: 0.5 }}>
                       {platformEmoji[item.platform]} {item.platform}
@@ -175,7 +182,7 @@ export default function Icerik() {
                     </div>
                   )}
                 </div>
-                <div className="flex justify-between items-center mt-3 pt-3" style={{ borderTop: "1px solid #F1F5F9" }}>
+                <div className="flex justify-between items-center mt-3 pt-3" style={{ borderTop: "1px solid #F1F5F9", padding: "0 18px 16px" }}>
                   <span style={{ fontSize: 11, color: "#6B7280" }}>
                     {item.scheduled_at ? new Date(item.scheduled_at).toLocaleDateString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Tarih yok"}
                   </span>
