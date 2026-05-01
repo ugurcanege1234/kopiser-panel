@@ -43,6 +43,7 @@ export default function Icerik() {
   const [filterStatus, setFilterStatus] = useState("Hepsi");
   const [generatingBlog, setGeneratingBlog] = useState(false);
   const [blogResult, setBlogResult] = useState<string | null>(null);
+  const [generatingImageId, setGeneratingImageId] = useState<string | null>(null);
 
   const fetch = async () => {
     const { data } = await supabase.from("content_items").select("*").order("scheduled_at", { ascending: true });
@@ -97,6 +98,20 @@ export default function Icerik() {
       setBlogResult(`Hata: ${String(err)}`);
     }
     setGeneratingBlog(false);
+  };
+
+  const handleGenerateImage = async (item: ContentItem) => {
+    setGeneratingImageId(item.id);
+    try {
+      const res = await window.fetch("/api/blog/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: item.id, title: item.title, platform: item.platform }),
+      });
+      const data = await res.json();
+      if (data.ok) fetch();
+    } catch { /* sessizce geç */ }
+    setGeneratingImageId(null);
   };
 
   const filtered = filterStatus === "Hepsi" ? items : items.filter(i => i.status === filterStatus);
@@ -187,6 +202,15 @@ export default function Icerik() {
                     {item.scheduled_at ? new Date(item.scheduled_at).toLocaleDateString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Tarih yok"}
                   </span>
                   <div className="flex gap-2">
+                    {!item.image_url && (
+                      <button
+                        onClick={() => handleGenerateImage(item)}
+                        disabled={generatingImageId === item.id}
+                        title="Gemini ile görsel üret"
+                        style={{ padding: "3px 10px", fontSize: 11, fontWeight: 600, border: "none", borderRadius: 6, cursor: generatingImageId === item.id ? "wait" : "pointer", backgroundColor: "#7C3AED", color: "#fff", opacity: generatingImageId === item.id ? 0.6 : 1 }}>
+                        {generatingImageId === item.id ? "⏳" : "🎨"}
+                      </button>
+                    )}
                     <button onClick={() => handleEdit(item)}
                       style={{ padding: "3px 10px", fontSize: 11, fontWeight: 600, border: "1px solid #E5EAF0", borderRadius: 6, cursor: "pointer", backgroundColor: "#fff", color: "#1F3A5F" }}>
                       Düzenle

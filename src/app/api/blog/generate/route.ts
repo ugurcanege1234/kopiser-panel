@@ -220,15 +220,6 @@ BAŞLIK: [başlık]
         const title = titleMatch ? titleMatch[1].trim() : topic;
         const content = contentMatch ? contentMatch[1].trim() : text;
 
-        // Görsel üret
-        let imageUrl: string | null = null;
-        const imgPrompt = await generateImagePrompt(anthropic, topic, "blog");
-        const base64 = await generateGeminiImage(imgPrompt);
-        if (base64) {
-          const filename = `blog-${Date.now()}-${i}.png`;
-          imageUrl = await uploadImageToSupabase(base64, filename);
-        }
-
         const scheduledAt = new Date(today);
         scheduledAt.setHours(10 + i * 2, 0, 0, 0);
 
@@ -240,10 +231,10 @@ BAŞLIK: [başlık]
           content_text: content,
           notes: `Site: ${site.site} | ${siteWeakKw ? `SEO hedef: "${siteWeakKw.keyword}"` : "Genel konu"} | AI`,
           assigned_to: "AI",
-          image_url: imageUrl,
+          image_url: null,
         }]);
 
-        results.push({ type: "blog", site: site.site, success: !error, title, imageUrl: !!imageUrl });
+        results.push({ type: "blog", site: site.site, success: !error, title });
       } catch (err) {
         results.push({ type: "blog", site: site.site, success: false, error: String(err) });
       }
@@ -256,17 +247,6 @@ BAŞLIK: [başlık]
     const socialTopic = customTopic || (generalWeakKw
       ? `${generalWeakKw.keyword} — fotokopi kiralama avantajları`
       : TOPICS[(dayIndex + 2) % TOPICS.length]);
-
-    // Sosyal medya için tek görsel üret (Instagram için)
-    let socialImageUrl: string | null = null;
-    try {
-      const imgPrompt = await generateImagePrompt(anthropic, socialTopic, "Instagram");
-      const base64 = await generateGeminiImage(imgPrompt);
-      if (base64) {
-        const filename = `social-${Date.now()}.png`;
-        socialImageUrl = await uploadImageToSupabase(base64, filename);
-      }
-    } catch { /* görsel opsiyonel */ }
 
     for (let i = 0; i < SOCIAL_PLATFORMS.length; i++) {
       const sp = SOCIAL_PLATFORMS[i];
@@ -283,10 +263,10 @@ BAŞLIK: [başlık]
           content_text: content,
           notes: `AI tarafından oluşturuldu | Konu: ${socialTopic.slice(0, 80)}`,
           assigned_to: "AI",
-          image_url: sp.platform === "Instagram" ? socialImageUrl : null,
+          image_url: null,
         }]);
 
-        results.push({ type: "social", platform: sp.platform, success: !error, imageUrl: sp.platform === "Instagram" && !!socialImageUrl });
+        results.push({ type: "social", platform: sp.platform, success: !error });
       } catch (err) {
         results.push({ type: "social", platform: sp.platform, success: false, error: String(err) });
       }
