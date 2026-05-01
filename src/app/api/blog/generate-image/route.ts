@@ -9,26 +9,25 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-async function generateImagePrompt(anthropic: Anthropic, title: string, platform: string): Promise<string> {
+async function buildPexelsQuery(anthropic: Anthropic, title: string): Promise<string> {
   const res = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 150,
+    max_tokens: 30,
     messages: [{
       role: "user",
-      content: `Write a short English image generation prompt for: "${title}"
-Context: Turkish office copier/printer rental company, B2B professional.
-Platform: ${platform}
-Style: photorealistic, modern multifunction printer in a clean bright office, professional lighting, no text or logos in image.
-Output: Just the prompt (1-2 sentences max), nothing else.`
+      content: `Convert this Turkish blog title to 2-3 English keywords for a stock photo search.
+Title: "${title}"
+Context: office printer/copier rental company.
+Output: just the keywords, nothing else. Example: "office printer business"`
     }],
   });
   return (res.content[0] as { text: string }).text.trim();
 }
 
 export async function POST(req: NextRequest) {
-  const geminiKey = process.env.GEMINI_API_KEY;
+  const pexelsKey = process.env.PEXELS_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (!geminiKey) return NextResponse.json({ error: "GEMINI_API_KEY tanımlı değil" }, { status: 500 });
+  if (!pexelsKey) return NextResponse.json({ error: "PEXELS_API_KEY tanımlı değil — pexels.com/api adresinden ücretsiz alın, Netlify env vars'a ekleyin" }, { status: 500 });
   if (!anthropicKey) return NextResponse.json({ error: "ANTHROPIC_API_KEY tanımlı değil" }, { status: 500 });
 
   const body = await req.json().catch(() => ({}));
@@ -37,67 +36,47 @@ export async function POST(req: NextRequest) {
 
   const anthropic = new Anthropic({ apiKey: anthropicKey });
 
-  // 1. Claude ile görsel prompt üret
-  const imagePrompt = await generateImagePrompt(anthropic, title, platform || "Blog");
+  // 1. Claude ile Pexels arama terimi üret
+  let searchQuery: string;
+  try {
+    searchQuery = await buildPexelsQuery(anthropic, title);
+  } catch {
+    searchQuery = platform === "Blog" ? "office printer business" : "multifunction printer office";
+  }
 
-  // 2. Gemini 2.0 Flash ile görsel üret
-  const geminiRes = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: imagePrompt }] }],
-        generationConfig: { responseModalities: ["IMAGE"] },
-      }),
-    }
+  // 2. Pexels'ten fotoğraf çek
+  const pexelsRes = await fetch(
+    `https://api.pexels.com/v1/search?query=${encodeURIComponent(searchQuery)}&per_page=5&orientation=landscape`,
+    { headers: { Authorization: pexelsKey } }
   );
 
-  const rawText = await geminiRes.text();
-
-  if (!geminiRes.ok) {
-    return NextResponse.json({
-      error: `Gemini API hatası (${geminiRes.status}): ${rawText.slice(0, 300)}`,
-      imagePrompt,
-    }, { status: 500 });
+  if (!pexelsRes.ok) {
+    const txt = await pexelsRes.text();
+    return NextResponse.json({ error: `Pexels API hatası (${pexelsRes.status}): ${txt.slice(0, 200)}`, searchQuery }, { status: 500 });
   }
 
-  let geminiData: { candidates?: { content?: { parts?: { inlineData?: { data: string; mimeType: string } }[] } }[] };
-  try {
-    geminiData = JSON.parse(rawText);
-  } catch {
-    return NextResponse.json({ error: `API yanıtı parse edilemedi: ${rawText.slice(0, 200)}` }, { status: 500 });
+  const pexelsData: { photos?: { src: { large2x: string; large: string } }[] } = await pexelsRes.json();
+  const photos = pexelsData.photos || [];
+
+  if (photos.length === 0) {
+    // Fallback: genel ofis yazıcı araması
+    const fallbackRes = await fetch(
+      `https://api.pexels.com/v1/search?query=office+printer&per_page=1&orientation=landscape`,
+      { headers: { Authorization: pexelsKey } }
+    );
+    const fallbackData: { photos?: { src: { large2x: string; large: string } }[] } = await fallbackRes.json();
+    if (!fallbackData.photos?.[0]) {
+      return NextResponse.json({ error: "Pexels fotoğraf bulunamadı", searchQuery }, { status: 500 });
+    }
+    photos.push(fallbackData.photos[0]);
   }
 
-  const parts = geminiData.candidates?.[0]?.content?.parts;
-  const imagePart = parts?.find(p => p.inlineData);
+  // Rastgele bir fotoğraf seç (ilk 5 içinden)
+  const randomIndex = Math.floor(Math.random() * Math.min(photos.length, 5));
+  const photo = photos[randomIndex] || photos[0];
+  const imageUrl = photo.src.large2x || photo.src.large;
 
-  if (!imagePart?.inlineData?.data) {
-    return NextResponse.json({
-      error: "Gemini görsel döndürmedi",
-      imagePrompt,
-      raw: rawText.slice(0, 300),
-    }, { status: 500 });
-  }
-
-  // 3. Supabase Storage'a yükle
-  const buffer = Buffer.from(imagePart.inlineData.data, "base64");
-  const mimeType = imagePart.inlineData.mimeType || "image/png";
-  const ext = mimeType.includes("jpeg") ? "jpg" : "png";
-  const filename = `img-${id}-${Date.now()}.${ext}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from("blog-images")
-    .upload(filename, buffer, { contentType: mimeType, upsert: true });
-
-  if (uploadError) {
-    return NextResponse.json({ error: `Storage upload hatası: ${uploadError.message}` }, { status: 500 });
-  }
-
-  const { data: urlData } = supabase.storage.from("blog-images").getPublicUrl(filename);
-  const imageUrl = urlData.publicUrl;
-
-  // 4. content_items güncelle
+  // 3. content_items güncelle
   const { error: updateError } = await supabase
     .from("content_items")
     .update({ image_url: imageUrl })
@@ -107,5 +86,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `DB güncelleme hatası: ${updateError.message}` }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, imageUrl, imagePrompt });
+  return NextResponse.json({ ok: true, imageUrl, searchQuery });
 }
