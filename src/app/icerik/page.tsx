@@ -77,17 +77,23 @@ export default function Icerik() {
     setGeneratingBlog(true);
     setBlogResult(null);
     try {
-      const res = await window.fetch("/api/blog/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
-      const json = await res.json();
-      if (json.ok) {
-        const succeeded = json.results.filter((r: { success: boolean }) => r.success).length;
+      const res = await window.fetch("/api/blog/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const text = await res.text();
+      let json: { ok?: boolean; results?: { success: boolean }[]; error?: string };
+      try { json = JSON.parse(text); } catch { json = { error: `Sunucu yanıtı: ${text.slice(0, 200)}` }; }
+      if (json.ok && json.results) {
+        const succeeded = json.results.filter(r => r.success).length;
         setBlogResult(`✓ ${succeeded}/${json.results.length} blog yazısı oluşturuldu ve takvime eklendi`);
         fetch();
       } else {
-        setBlogResult(`Hata: ${json.error}`);
+        setBlogResult(`Hata: ${json.error || `HTTP ${res.status}`}`);
       }
-    } catch {
-      setBlogResult("Blog üretimi sırasında bir hata oluştu");
+    } catch (err) {
+      setBlogResult(`Hata: ${String(err)}`);
     }
     setGeneratingBlog(false);
   };
