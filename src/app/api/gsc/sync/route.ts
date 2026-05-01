@@ -14,15 +14,28 @@ const SITES = [
   { url: "sc-domain:izmirfotokopi.net", label: "izmirfotokopi.net" },
 ];
 
-async function getAuth() {
-  const b64 = process.env.GOOGLE_SERVICE_ACCOUNT_B64;
-  const credentials = b64
-    ? JSON.parse(Buffer.from(b64, "base64").toString("utf8"))
-    : {
-        client_email: process.env.GOOGLE_CLIENT_EMAIL,
-        private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-      };
+async function getCredentials() {
+  // Supabase'den çek (env var 4KB limitini aşmamak için)
+  const { data } = await supabase
+    .from("app_config")
+    .select("value")
+    .eq("key", "google_service_account")
+    .single();
 
+  if (data?.value) return JSON.parse(data.value);
+
+  // Fallback: env var
+  const b64 = process.env.GOOGLE_SERVICE_ACCOUNT_B64;
+  if (b64) return JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
+
+  return {
+    client_email: process.env.GOOGLE_CLIENT_EMAIL,
+    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+  };
+}
+
+async function getAuth() {
+  const credentials = await getCredentials();
   return new google.auth.GoogleAuth({
     credentials,
     scopes: ["https://www.googleapis.com/auth/webmasters.readonly"],
