@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Campaign = {
-  id: string; created_at: string; name: string; platform: string; status: string;
+  id: string; created_at?: string; name: string; platform: string; status: string;
   budget_daily: number | null; spend_total: number | null; leads_count: number | null;
-  cpl: number | null; roas: number | null; start_date: string | null; end_date: string | null; notes: string | null;
+  impressions?: number; reach?: number; clicks?: number;
+  cpl: number | null; roas: number | null; start_date?: string | null; end_date?: string | null;
+  notes?: string | null; source?: "meta" | "manual";
 };
 
 const PLATFORMS = ["Meta", "Google", "TikTok", "Diğer"];
@@ -22,19 +24,35 @@ const statusStyle: Record<string, { bg: string; color: string }> = {
 const emptyForm = { name: "", platform: "Meta", status: "Taslak", budget_daily: "", spend_total: "", leads_count: "", cpl: "", roas: "", start_date: "", end_date: "", notes: "" };
 
 export default function Reklam() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [metaCampaigns, setMetaCampaigns] = useState<Campaign[]>([]);
+  const [manualCampaigns, setManualCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
+  const [metaError, setMetaError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<"meta" | "manual">("meta");
 
-  const fetchData = async () => {
-    const { data } = await supabase.from("campaigns").select("*").order("created_at", { ascending: false });
-    setCampaigns(data || []); setLoading(false);
+  const fetchMeta = async () => {
+    try {
+      const res = await fetch("/api/meta/campaigns");
+      const json = await res.json();
+      if (json.error) { setMetaError(json.error); return; }
+      setMetaCampaigns(json.campaigns.map((c: Campaign) => ({ ...c, source: "meta" as const })));
+    } catch {
+      setMetaError("Meta API'ye ulaşılamadı");
+    }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  const fetchManual = async () => {
+    const { data } = await supabase.from("campaigns").select("*").order("created_at", { ascending: false });
+    setManualCampaigns((data || []).map((c: Campaign) => ({ ...c, source: "manual" as const })));
+  };
+
+  useEffect(() => {
+    Promise.all([fetchMeta(), fetchManual()]).then(() => setLoading(false));
+  }, []);
 
   const handleSubmit = async () => {
     setSaving(true);
@@ -49,7 +67,7 @@ export default function Reklam() {
     };
     if (editId) await supabase.from("campaigns").update(payload).eq("id", editId);
     else await supabase.from("campaigns").insert([payload]);
-    setSaving(false); setShowForm(false); setEditId(null); setForm(emptyForm); fetchData();
+    setSaving(false); setShowForm(false); setEditId(null); setForm(emptyForm); fetchManual();
   };
 
   const handleEdit = (c: Campaign) => {
@@ -59,37 +77,44 @@ export default function Reklam() {
       leads_count: c.leads_count?.toString() || "", cpl: c.cpl?.toString() || "",
       roas: c.roas?.toString() || "", start_date: c.start_date || "", end_date: c.end_date || "", notes: c.notes || "",
     });
-    setEditId(c.id); setShowForm(true);
+    setEditId(c.id); setShowForm(true); setActiveTab("manual");
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Silinsin mi?")) return;
-    await supabase.from("campaigns").delete().eq("id", id); fetchData();
+    await supabase.from("campaigns").delete().eq("id", id); fetchManual();
   };
 
-  const totalSpend = campaigns.filter(c => c.status === "Aktif").reduce((s, c) => s + (c.spend_total || 0), 0);
-  const totalLeads = campaigns.filter(c => c.status === "Aktif").reduce((s, c) => s + (c.leads_count || 0), 0);
-  const avgRoas = campaigns.filter(c => c.roas).reduce((s, c) => s + (c.roas || 0), 0) / (campaigns.filter(c => c.roas).length || 1);
+  const allActive = [...metaCampaigns, ...manualCampaigns].filter(c => c.status === "Aktif");
+  const totalSpend = allActive.reduce((s, c) => s + (c.spend_total || 0), 0);
+  const totalLeads = allActive.reduce((s, c) => s + (c.leads_count || 0), 0);
+  const metaSpend = metaCampaigns.reduce((s, c) => s + (c.spend_total || 0), 0);
+  const metaLeads = metaCampaigns.reduce((s, c) => s + (c.leads_count || 0), 0);
+
+  const displayCampaigns = activeTab === "meta" ? metaCampaigns : manualCampaigns;
 
   return (
     <div style={{ padding: "24px 32px 40px" }}>
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="flex items-center gap-2" style={{ fontSize: 22, fontWeight: 700, color: "#1A1F2E" }}>🎯 Reklam Yönetimi</h1>
-          <p style={{ color: "#6B7280", fontSize: 13, marginTop: 4 }}>{campaigns.filter(c => c.status === "Aktif").length} aktif kampanya</p>
+          <p style={{ color: "#6B7280", fontSize: 13, marginTop: 4 }}>
+            {allActive.length} aktif kampanya · Meta API canlı veri
+          </p>
         </div>
-        <button onClick={() => { setShowForm(true); setEditId(null); setForm(emptyForm); }}
+        <button onClick={() => { setShowForm(true); setEditId(null); setForm(emptyForm); setActiveTab("manual"); }}
           style={{ padding: "9px 18px", borderRadius: 8, backgroundColor: "#1F3A5F", color: "#fff", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
-          + Yeni Kampanya
+          + Manuel Kampanya
         </button>
       </div>
 
-      {/* KPI özet */}
-      <div className="grid gap-4 mb-6" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+      {/* KPI */}
+      <div className="grid gap-4 mb-6" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
         {[
-          { label: "Toplam Harcama (Aktif)", value: `${totalSpend.toLocaleString("tr-TR")} TL`, color: "#C8102E" },
-          { label: "Toplam Lead (Aktif)", value: totalLeads.toString(), color: "#10B981" },
-          { label: "Ort. ROAS", value: `${avgRoas.toFixed(1)}x`, color: "#3B82F6" },
+          { label: "Meta Harcama (90g)", value: `${metaSpend.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} TL`, color: "#C8102E" },
+          { label: "Meta Lead (90g)", value: metaLeads.toString(), color: "#10B981" },
+          { label: "Meta Kampanya", value: metaCampaigns.length.toString(), color: "#1F3A5F" },
+          { label: "Ort. CPL", value: metaLeads > 0 ? `${Math.round(metaSpend / metaLeads)} TL` : "—", color: "#F59E0B" },
         ].map(kpi => (
           <div key={kpi.label} className="rounded-xl relative overflow-hidden"
             style={{ backgroundColor: "#fff", border: "1px solid #E5EAF0", padding: "18px 20px", boxShadow: "0 1px 2px rgba(15,23,42,0.04)" }}>
@@ -100,40 +125,83 @@ export default function Reklam() {
         ))}
       </div>
 
+      {/* Tab */}
+      <div className="flex gap-3 mb-5">
+        {([["meta", "📡 Meta Ads (Canlı)"], ["manual", "📋 Manuel Kampanyalar"]] as const).map(([tab, label]) => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            style={{ padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
+              border: activeTab === tab ? "none" : "1px solid #E5EAF0",
+              backgroundColor: activeTab === tab ? "#1F3A5F" : "#fff",
+              color: activeTab === tab ? "#fff" : "#6B7280" }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Meta hata */}
+      {activeTab === "meta" && metaError && (
+        <div style={{ padding: "12px 16px", backgroundColor: "#FEF2F2", border: "1px solid #FEE2E2", borderRadius: 8, color: "#DC2626", fontSize: 13, marginBottom: 16 }}>
+          Meta API hatası: {metaError}
+        </div>
+      )}
+
       {/* Tablo */}
       <div className="rounded-xl overflow-hidden" style={{ backgroundColor: "#fff", border: "1px solid #E5EAF0", boxShadow: "0 1px 2px rgba(15,23,42,0.04)" }}>
         {loading ? <div style={{ padding: 60, textAlign: "center", color: "#6B7280" }}>Yükleniyor...</div> : (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ backgroundColor: "#F7F9FC", borderBottom: "1px solid #E5EAF0" }}>
-                {["Kampanya", "Platform", "Durum", "Günlük Bütçe", "Toplam Harcama", "Lead", "CPL", "ROAS", "İşlemler"].map(h => (
-                  <th key={h} style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: "#6B7280", textAlign: "left", textTransform: "uppercase", letterSpacing: 0.5 }}>{h}</th>
-                ))}
+                {activeTab === "meta"
+                  ? ["Kampanya", "Durum", "Günlük Bütçe", "Harcama (90g)", "Gösterim", "Tıklama", "Lead", "CPL"].map(h => (
+                      <th key={h} style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: "#6B7280", textAlign: "left", textTransform: "uppercase", letterSpacing: 0.5 }}>{h}</th>
+                    ))
+                  : ["Kampanya", "Platform", "Durum", "Günlük Bütçe", "Toplam Harcama", "Lead", "CPL", "ROAS", "İşlemler"].map(h => (
+                      <th key={h} style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: "#6B7280", textAlign: "left", textTransform: "uppercase", letterSpacing: 0.5 }}>{h}</th>
+                    ))
+                }
               </tr>
             </thead>
             <tbody>
-              {campaigns.map((c, i) => {
+              {displayCampaigns.length === 0 ? (
+                <tr><td colSpan={9} style={{ padding: 40, textAlign: "center", color: "#6B7280", fontSize: 13 }}>
+                  {activeTab === "meta" ? "Meta kampanya verisi yok" : "Manuel kampanya eklenmemiş"}
+                </td></tr>
+              ) : displayCampaigns.map((c, i) => {
                 const st = statusStyle[c.status] || { bg: "#F1F5F9", color: "#64748B" };
                 return (
-                  <tr key={c.id} style={{ borderBottom: i < campaigns.length - 1 ? "1px solid #F1F5F9" : "none" }}
+                  <tr key={c.id} style={{ borderBottom: i < displayCampaigns.length - 1 ? "1px solid #F1F5F9" : "none" }}
                     onMouseEnter={e => ((e.currentTarget as HTMLElement).style.backgroundColor = "#FAFBFC")}
                     onMouseLeave={e => ((e.currentTarget as HTMLElement).style.backgroundColor = "transparent")}>
-                    <td style={{ padding: "12px 14px", fontWeight: 600, fontSize: 13, color: "#1A1F2E" }}>{c.name}</td>
-                    <td style={{ padding: "12px 14px", fontSize: 12, color: "#6B7280" }}>{c.platform}</td>
-                    <td style={{ padding: "12px 14px" }}>
-                      <span style={{ padding: "3px 10px", borderRadius: 12, fontSize: 11, fontWeight: 700, backgroundColor: st.bg, color: st.color }}>{c.status}</span>
+                    <td style={{ padding: "12px 14px", fontWeight: 600, fontSize: 13, color: "#1A1F2E", maxWidth: 260 }}>
+                      <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</div>
                     </td>
-                    <td style={{ padding: "12px 14px", fontSize: 13, color: "#1A1F2E" }}>{c.budget_daily ? `${c.budget_daily} TL` : "—"}</td>
-                    <td style={{ padding: "12px 14px", fontSize: 13, fontWeight: 600, color: "#1A1F2E" }}>{c.spend_total ? `${Number(c.spend_total).toLocaleString("tr-TR")} TL` : "—"}</td>
-                    <td style={{ padding: "12px 14px", fontSize: 13, fontWeight: 700, color: "#1F3A5F" }}>{c.leads_count ?? "—"}</td>
-                    <td style={{ padding: "12px 14px", fontSize: 13, color: "#1A1F2E" }}>{c.cpl ? `${c.cpl} TL` : "—"}</td>
-                    <td style={{ padding: "12px 14px", fontSize: 14, fontWeight: 800, color: (c.roas || 0) >= 3 ? "#10B981" : "#F59E0B" }}>{c.roas ? `${c.roas}x` : "—"}</td>
-                    <td style={{ padding: "12px 14px" }}>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleEdit(c)} style={{ padding: "4px 10px", fontSize: 11, fontWeight: 600, border: "1px solid #E5EAF0", borderRadius: 6, cursor: "pointer", backgroundColor: "#fff", color: "#1F3A5F" }}>Düzenle</button>
-                        <button onClick={() => handleDelete(c.id)} style={{ padding: "4px 10px", fontSize: 11, fontWeight: 600, border: "1px solid #FEE2E2", borderRadius: 6, cursor: "pointer", backgroundColor: "#FEF2F2", color: "#EF4444" }}>Sil</button>
-                      </div>
-                    </td>
+                    {activeTab === "meta" ? <>
+                      <td style={{ padding: "12px 14px" }}>
+                        <span style={{ padding: "3px 10px", borderRadius: 12, fontSize: 11, fontWeight: 700, backgroundColor: st.bg, color: st.color }}>{c.status}</span>
+                      </td>
+                      <td style={{ padding: "12px 14px", fontSize: 13, color: "#1A1F2E" }}>{c.budget_daily ? `${c.budget_daily} TL/gün` : "—"}</td>
+                      <td style={{ padding: "12px 14px", fontSize: 13, fontWeight: 600, color: "#1A1F2E" }}>{c.spend_total ? `${Number(c.spend_total).toLocaleString("tr-TR")} TL` : "—"}</td>
+                      <td style={{ padding: "12px 14px", fontSize: 13, color: "#6B7280" }}>{c.impressions?.toLocaleString("tr-TR") ?? "—"}</td>
+                      <td style={{ padding: "12px 14px", fontSize: 13, color: "#6B7280" }}>{c.clicks?.toLocaleString("tr-TR") ?? "—"}</td>
+                      <td style={{ padding: "12px 14px", fontSize: 14, fontWeight: 700, color: "#1F3A5F" }}>{c.leads_count ?? "—"}</td>
+                      <td style={{ padding: "12px 14px", fontSize: 13, color: "#1A1F2E" }}>{c.cpl ? `${c.cpl} TL` : "—"}</td>
+                    </> : <>
+                      <td style={{ padding: "12px 14px", fontSize: 12, color: "#6B7280" }}>{c.platform}</td>
+                      <td style={{ padding: "12px 14px" }}>
+                        <span style={{ padding: "3px 10px", borderRadius: 12, fontSize: 11, fontWeight: 700, backgroundColor: st.bg, color: st.color }}>{c.status}</span>
+                      </td>
+                      <td style={{ padding: "12px 14px", fontSize: 13, color: "#1A1F2E" }}>{c.budget_daily ? `${c.budget_daily} TL` : "—"}</td>
+                      <td style={{ padding: "12px 14px", fontSize: 13, fontWeight: 600, color: "#1A1F2E" }}>{c.spend_total ? `${Number(c.spend_total).toLocaleString("tr-TR")} TL` : "—"}</td>
+                      <td style={{ padding: "12px 14px", fontSize: 13, fontWeight: 700, color: "#1F3A5F" }}>{c.leads_count ?? "—"}</td>
+                      <td style={{ padding: "12px 14px", fontSize: 13, color: "#1A1F2E" }}>{c.cpl ? `${c.cpl} TL` : "—"}</td>
+                      <td style={{ padding: "12px 14px", fontSize: 14, fontWeight: 800, color: (c.roas || 0) >= 3 ? "#10B981" : "#F59E0B" }}>{c.roas ? `${c.roas}x` : "—"}</td>
+                      <td style={{ padding: "12px 14px" }}>
+                        <div className="flex gap-2">
+                          <button onClick={() => handleEdit(c)} style={{ padding: "4px 10px", fontSize: 11, fontWeight: 600, border: "1px solid #E5EAF0", borderRadius: 6, cursor: "pointer", backgroundColor: "#fff", color: "#1F3A5F" }}>Düzenle</button>
+                          <button onClick={() => handleDelete(c.id)} style={{ padding: "4px 10px", fontSize: 11, fontWeight: 600, border: "1px solid #FEE2E2", borderRadius: 6, cursor: "pointer", backgroundColor: "#FEF2F2", color: "#EF4444" }}>Sil</button>
+                        </div>
+                      </td>
+                    </>}
                   </tr>
                 );
               })}
@@ -142,7 +210,7 @@ export default function Reklam() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Manuel Kampanya Modal */}
       {showForm && (
         <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
           onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
@@ -155,12 +223,12 @@ export default function Reklam() {
                   style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #E5EAF0", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
               </div>
               <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1fr" }}>
-                {[["Platform", "platform", PLATFORMS], ["Durum", "status", STATUSES]].map(([label, key, opts]) => (
-                  <div key={key as string}>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 6 }}>{label as string}</label>
-                    <select value={form[key as keyof typeof form]} onChange={e => setForm({ ...form, [key as string]: e.target.value })}
+                {([["Platform", "platform", PLATFORMS], ["Durum", "status", STATUSES]] as const).map(([label, key, opts]) => (
+                  <div key={key}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 6 }}>{label}</label>
+                    <select value={form[key as keyof typeof form]} onChange={e => setForm({ ...form, [key]: e.target.value })}
                       style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #E5EAF0", fontSize: 13, outline: "none", backgroundColor: "#fff" }}>
-                      {(opts as string[]).map(o => <option key={o}>{o}</option>)}
+                      {(opts as readonly string[]).map(o => <option key={o}>{o}</option>)}
                     </select>
                   </div>
                 ))}
