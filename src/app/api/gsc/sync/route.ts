@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { google } from "googleapis";
 import { createClient } from "@supabase/supabase-js";
 
 export const maxDuration = 60;
@@ -9,123 +8,77 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const SITES = [
-  { url: "sc-domain:kopiser.com.tr", label: "kopiser.com.tr" },
-  { url: "sc-domain:izmirfotokopi.net", label: "izmirfotokopi.net" },
-];
+const SERPER_KEY = process.env.SERPER_API_KEY;
 
-async function getCredentials() {
-  // Supabase'den çek (env var 4KB limitini aşmamak için)
-  const { data } = await supabase
-    .from("app_config")
-    .select("value")
-    .eq("key", "google_service_account")
-    .single();
+const SITE_DOMAINS: Record<string, string> = {
+  "kopiser.com.tr": "kopiser.com.tr",
+  "izmirfotokopi.net": "izmirfotokopi.net",
+};
 
-  if (data?.value) return JSON.parse(data.value);
-
-  // Fallback: env var
-  const b64 = process.env.GOOGLE_SERVICE_ACCOUNT_B64;
-  if (b64) return JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
-
-  return {
-    client_email: process.env.GOOGLE_CLIENT_EMAIL,
-    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-  };
-}
-
-async function getAuth() {
-  const credentials = await getCredentials();
-  return new google.auth.GoogleAuth({
-    credentials,
-    scopes: ["https://www.googleapis.com/auth/webmasters.readonly"],
+async function checkRanking(keyword: string, domain: string): Promise<number | null> {
+  const res = await fetch("https://google.serper.dev/search", {
+    method: "POST",
+    headers: { "X-API-KEY": SERPER_KEY!, "Content-Type": "application/json" },
+    body: JSON.stringify({ q: keyword, gl: "tr", hl: "tr", num: 30 }),
   });
+
+  if (!res.ok) return null;
+  const data = await res.json();
+
+  const organic: { link: string }[] = data.organic || [];
+  for (let i = 0; i < organic.length; i++) {
+    if (organic[i].link?.includes(domain)) {
+      return i + 1;
+    }
+  }
+  return null; // ilk 30'da yok
 }
 
 export async function POST() {
-  try {
-    const auth = await getAuth();
-    const searchconsole = google.searchconsole({ version: "v1", auth });
+  if (!SERPER_KEY) return NextResponse.json({ error: "SERPER_API_KEY tanımlı değil" }, { status: 500 });
 
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 28);
-    const start = startDate.toISOString().split("T")[0];
-    const end = endDate.toISOString().split("T")[0];
+  // Tüm takip edilen kelimeleri çek (max 20, limit aşmamak için)
+  const { data: keywords, error } = await supabase
+    .from("seo_keywords")
+    .select("id, keyword, site, position")
+    .order("checked_at", { ascending: true })
+    .limit(20);
 
-    const results: { site: string; updated: number; error?: string }[] = [];
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!keywords?.length) return NextResponse.json({ ok: true, results: [], message: "Takip edilen kelime yok" });
 
-    for (const site of SITES) {
-      try {
-        const res = await searchconsole.searchanalytics.query({
-          siteUrl: site.url,
-          requestBody: {
-            startDate: start,
-            endDate: end,
-            dimensions: ["query"],
-            rowLimit: 50,
-            dimensionFilterGroups: [],
-          },
-        });
+  const results = [];
 
-        const rows = res.data.rows || [];
-        let updated = 0;
+  for (const kw of keywords) {
+    const domain = SITE_DOMAINS[kw.site] || kw.site;
+    try {
+      const newPosition = await checkRanking(kw.keyword, domain);
 
-        for (const row of rows) {
-          const keyword = row.keys?.[0];
-          const position = row.position ? Math.round(row.position) : null;
-          const clicks = row.clicks || 0;
-          const impressions = row.impressions || 0;
+      await supabase.from("seo_keywords").update({
+        previous_position: kw.position,
+        position: newPosition,
+        checked_at: new Date().toISOString(),
+        notes: newPosition
+          ? `Google TR ${newPosition}. sıra — Serper.dev otomatik`
+          : `İlk 30'da bulunamadı — Serper.dev otomatik`,
+      }).eq("id", kw.id);
 
-          if (!keyword) continue;
-
-          const { data: existing } = await supabase
-            .from("seo_keywords")
-            .select("id, position")
-            .eq("keyword", keyword)
-            .eq("site", site.label)
-            .single();
-
-          if (existing) {
-            await supabase.from("seo_keywords").update({
-              previous_position: existing.position,
-              position,
-              checked_at: new Date().toISOString(),
-              notes: `Tıklama: ${clicks} | Gösterim: ${impressions} | GSC otomatik güncellendi`,
-            }).eq("id", existing.id);
-          } else {
-            await supabase.from("seo_keywords").insert([{
-              keyword,
-              site: site.label,
-              position,
-              previous_position: null,
-              target_position: position && position <= 3 ? position : 3,
-              checked_at: new Date().toISOString(),
-              notes: `Tıklama: ${clicks} | Gösterim: ${impressions} | GSC otomatik eklendi`,
-            }]);
-          }
-          updated++;
-        }
-
-        results.push({ site: site.label, updated });
-      } catch (err) {
-        results.push({ site: site.label, updated: 0, error: String(err) });
-      }
+      results.push({ keyword: kw.keyword, site: kw.site, position: newPosition, prev: kw.position });
+    } catch (err) {
+      results.push({ keyword: kw.keyword, site: kw.site, error: String(err) });
     }
-
-    return NextResponse.json({ ok: true, results });
-  } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 });
   }
+
+  return NextResponse.json({ ok: true, results, updated: results.length });
 }
 
 export async function GET() {
-  try {
-    const auth = await getAuth();
-    const searchconsole = google.searchconsole({ version: "v1", auth });
+  if (!SERPER_KEY) return NextResponse.json({ error: "SERPER_API_KEY tanımlı değil" }, { status: 500 });
 
-    const sites = await searchconsole.sites.list();
-    return NextResponse.json({ sites: sites.data.siteEntry || [] });
+  // Test: tek bir kelime dene
+  try {
+    const pos = await checkRanking("fotokopi makinesi kiralama izmir", "kopiser.com.tr");
+    return NextResponse.json({ ok: true, test_keyword: "fotokopi makinesi kiralama izmir", position: pos });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }

@@ -55,7 +55,7 @@ export default function Seo() {
       const json = await res.json();
       if (json.ok) {
         const total = json.results.reduce((s: number, r: { updated: number }) => s + r.updated, 0);
-        setSyncResult(`✓ ${total} kelime Google Search Console'dan güncellendi`);
+        setSyncResult(`✓ ${total} kelime Google'da kontrol edildi ve güncellendi`);
         fetchData();
       } else {
         setSyncResult(`Hata: ${json.error}`);
@@ -109,7 +109,7 @@ export default function Seo() {
         <div className="flex gap-3">
           <button onClick={handleSync} disabled={syncing}
             style={{ padding: "9px 18px", borderRadius: 8, backgroundColor: "#10B981", color: "#fff", border: "none", cursor: syncing ? "wait" : "pointer", fontSize: 13, fontWeight: 600, opacity: syncing ? 0.7 : 1 }}>
-            {syncing ? "⏳ Senkronize ediliyor..." : "🔄 GSC Güncelle"}
+            {syncing ? "⏳ Sıralar kontrol ediliyor..." : "🔄 Google Sıraları Güncelle"}
           </button>
           <button onClick={() => { setShowForm(true); setEditId(null); setForm(emptyForm); }}
             style={{ padding: "9px 18px", borderRadius: 8, backgroundColor: "#1F3A5F", color: "#fff", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
