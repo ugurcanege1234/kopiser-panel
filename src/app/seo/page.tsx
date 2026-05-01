@@ -37,6 +37,8 @@ export default function Seo() {
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [filterSite, setFilterSite] = useState("Hepsi");
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
 
   const fetchData = async () => {
     const { data } = await supabase.from("seo_keywords").select("*").order("position", { ascending: true });
@@ -44,6 +46,25 @@ export default function Seo() {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/gsc/sync", { method: "POST" });
+      const json = await res.json();
+      if (json.ok) {
+        const total = json.results.reduce((s: number, r: { updated: number }) => s + r.updated, 0);
+        setSyncResult(`✓ ${total} kelime Google Search Console'dan güncellendi`);
+        fetchData();
+      } else {
+        setSyncResult(`Hata: ${json.error}`);
+      }
+    } catch (err) {
+      setSyncResult(`Hata: ${String(err)}`);
+    }
+    setSyncing(false);
+  };
 
   const handleSubmit = async () => {
     setSaving(true);
@@ -85,11 +106,26 @@ export default function Seo() {
           <h1 className="flex items-center gap-2" style={{ fontSize: 22, fontWeight: 700, color: "#1A1F2E" }}>📈 SEO & Web</h1>
           <p style={{ color: "#6B7280", fontSize: 13, marginTop: 4 }}>{keywords.length} anahtar kelime · {top10} tanesi ilk 10'da</p>
         </div>
-        <button onClick={() => { setShowForm(true); setEditId(null); setForm(emptyForm); }}
-          style={{ padding: "9px 18px", borderRadius: 8, backgroundColor: "#1F3A5F", color: "#fff", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
-          + Kelime Ekle
-        </button>
+        <div className="flex gap-3">
+          <button onClick={handleSync} disabled={syncing}
+            style={{ padding: "9px 18px", borderRadius: 8, backgroundColor: "#10B981", color: "#fff", border: "none", cursor: syncing ? "wait" : "pointer", fontSize: 13, fontWeight: 600, opacity: syncing ? 0.7 : 1 }}>
+            {syncing ? "⏳ Senkronize ediliyor..." : "🔄 GSC Güncelle"}
+          </button>
+          <button onClick={() => { setShowForm(true); setEditId(null); setForm(emptyForm); }}
+            style={{ padding: "9px 18px", borderRadius: 8, backgroundColor: "#1F3A5F", color: "#fff", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+            + Kelime Ekle
+          </button>
+        </div>
       </div>
+
+      {syncResult && (
+        <div style={{ padding: "10px 16px", marginBottom: 16,
+          backgroundColor: syncResult.startsWith("✓") ? "#D1FAE5" : "#FEE2E2",
+          border: `1px solid ${syncResult.startsWith("✓") ? "#6EE7B7" : "#FCA5A5"}`,
+          borderRadius: 8, color: syncResult.startsWith("✓") ? "#059669" : "#DC2626", fontSize: 13 }}>
+          {syncResult}
+        </div>
+      )}
 
       {/* KPI */}
       <div className="grid gap-4 mb-6" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>

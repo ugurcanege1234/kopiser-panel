@@ -47,12 +47,25 @@ export async function POST(req: NextRequest) {
   const today = new Date();
   const dayIndex = today.getDate() % TOPICS.length;
 
+  // GSC'den zayıf/düşen kelimeleri çek — blog konusu olarak kullan
+  const { data: weakKeywords } = await supabase
+    .from("seo_keywords")
+    .select("keyword, site, position, previous_position")
+    .gt("position", 10)
+    .order("position", { ascending: true })
+    .limit(20);
+
   const sitesToProcess = siteFilter ? SITES.filter(s => s.site === siteFilter) : SITES;
   const results = [];
 
   for (let i = 0; i < sitesToProcess.length; i++) {
     const site = sitesToProcess[i];
-    const topic = customTopic || TOPICS[(dayIndex + i) % TOPICS.length];
+
+    // Bu site için zayıf kelime varsa onu kullan, yoksa genel konular
+    const siteWeakKw = (weakKeywords || []).find(k => k.site === site.site);
+    const topic = customTopic || (siteWeakKw
+      ? `"${siteWeakKw.keyword}" araması için rehber — ${siteWeakKw.position}. sıradan ilk 10'a nasıl girilir`
+      : TOPICS[(dayIndex + i) % TOPICS.length]);
     const todayStr = today.toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
 
     try {
