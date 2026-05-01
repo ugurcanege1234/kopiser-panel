@@ -47,6 +47,7 @@ function ContentDetailModal({
   onUpdate: (id: string, data: Partial<ContentItem>) => void;
   onGenerateImage: (item: ContentItem) => void;
   generatingImage: boolean;
+  imageError: string | null;
 }) {
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(item.content_text || "");
@@ -99,6 +100,11 @@ function ContentDetailModal({
                 style={{ width: "100%", padding: "7px", borderRadius: 8, backgroundColor: "#7C3AED", color: "#fff", border: "none", cursor: generatingImage ? "wait" : "pointer", fontSize: 12, fontWeight: 600, opacity: generatingImage ? 0.6 : 1 }}>
                 {generatingImage ? "⏳ Yenileniyor..." : "🎨 Görseli Yenile"}
               </button>
+            </div>
+          )}
+          {imageError && (
+            <div style={{ margin: "8px 12px", padding: "8px 12px", backgroundColor: "#FEF2F2", borderRadius: 6, fontSize: 11, color: "#DC2626", lineHeight: 1.4 }}>
+              ⚠️ {imageError}
             </div>
           )}
           {/* Meta bilgiler */}
@@ -198,6 +204,7 @@ export default function Icerik() {
   const [generatingBlog, setGeneratingBlog] = useState(false);
   const [blogResult, setBlogResult] = useState<string | null>(null);
   const [generatingImageId, setGeneratingImageId] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<ContentItem | null>(null);
 
   const fetchItems = async () => {
@@ -253,6 +260,7 @@ export default function Icerik() {
 
   const handleGenerateImage = async (item: ContentItem) => {
     setGeneratingImageId(item.id);
+    setImageError(null);
     try {
       const res = await window.fetch("/api/blog/generate-image", {
         method: "POST",
@@ -263,8 +271,12 @@ export default function Icerik() {
       if (data.ok) {
         fetchItems();
         if (selectedItem?.id === item.id) setSelectedItem(prev => prev ? { ...prev, image_url: data.imageUrl } : null);
+      } else {
+        setImageError(data.error || "Bilinmeyen hata");
       }
-    } catch { /* sessizce geç */ }
+    } catch (err) {
+      setImageError(String(err));
+    }
     setGeneratingImageId(null);
   };
 
@@ -376,11 +388,12 @@ export default function Icerik() {
       {selectedItem && (
         <ContentDetailModal
           item={selectedItem}
-          onClose={() => setSelectedItem(null)}
+          onClose={() => { setSelectedItem(null); setImageError(null); }}
           onDelete={handleDelete}
           onUpdate={handleUpdate}
           onGenerateImage={handleGenerateImage}
           generatingImage={generatingImageId === selectedItem.id}
+          imageError={generatingImageId === selectedItem.id ? null : imageError}
         />
       )}
 
