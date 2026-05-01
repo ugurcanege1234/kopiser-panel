@@ -39,6 +39,7 @@ export default function Seo() {
   const [filterSite, setFilterSite] = useState("Hepsi");
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [seeding, setSeeding] = useState(false);
 
   const fetchData = async () => {
     const { data } = await supabase.from("seo_keywords").select("*").order("position", { ascending: true });
@@ -46,6 +47,24 @@ export default function Seo() {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  const handleSeed = async () => {
+    setSeeding(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/seo/seed", { method: "POST" });
+      const json = await res.json();
+      if (json.ok) {
+        setSyncResult(`✓ ${json.added} yeni kelime eklendi, ${json.skipped} zaten vardı — sıralar kontrol edildi`);
+        fetchData();
+      } else {
+        setSyncResult(`Hata: ${json.error}`);
+      }
+    } catch (err) {
+      setSyncResult(`Hata: ${String(err)}`);
+    }
+    setSeeding(false);
+  };
 
   const handleSync = async () => {
     setSyncing(true);
@@ -107,6 +126,10 @@ export default function Seo() {
           <p style={{ color: "#6B7280", fontSize: 13, marginTop: 4 }}>{keywords.length} anahtar kelime · {top10} tanesi ilk 10'da</p>
         </div>
         <div className="flex gap-3">
+          <button onClick={handleSeed} disabled={seeding}
+            style={{ padding: "9px 18px", borderRadius: 8, backgroundColor: "#8B5CF6", color: "#fff", border: "none", cursor: seeding ? "wait" : "pointer", fontSize: 13, fontWeight: 600, opacity: seeding ? 0.7 : 1 }}>
+            {seeding ? "⏳ Kelimeler yükleniyor..." : "🌱 Sektör Kelimelerini Ekle"}
+          </button>
           <button onClick={handleSync} disabled={syncing}
             style={{ padding: "9px 18px", borderRadius: 8, backgroundColor: "#10B981", color: "#fff", border: "none", cursor: syncing ? "wait" : "pointer", fontSize: 13, fontWeight: 600, opacity: syncing ? 0.7 : 1 }}>
             {syncing ? "⏳ Sıralar kontrol ediliyor..." : "🔄 Google Sıraları Güncelle"}
