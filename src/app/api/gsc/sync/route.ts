@@ -15,11 +15,16 @@ const SITES = [
 ];
 
 async function getAuth() {
+  const b64 = process.env.GOOGLE_SERVICE_ACCOUNT_B64;
+  const credentials = b64
+    ? JSON.parse(Buffer.from(b64, "base64").toString("utf8"))
+    : {
+        client_email: process.env.GOOGLE_CLIENT_EMAIL,
+        private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+      };
+
   return new google.auth.GoogleAuth({
-    credentials: {
-      client_email: process.env.GOOGLE_CLIENT_EMAIL,
-      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-    },
+    credentials,
     scopes: ["https://www.googleapis.com/auth/webmasters.readonly"],
   });
 }
