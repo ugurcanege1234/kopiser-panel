@@ -40,48 +40,49 @@ export async function POST(req: NextRequest) {
   // 1. Claude ile görsel prompt üret
   const imagePrompt = await generateImagePrompt(anthropic, title, platform || "Blog");
 
-  // 2. Gemini API ile Imagen 3 görsel üret (API key yeterli)
-  const imagenRes = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${geminiKey}`,
+  // 2. Gemini 2.0 Flash ile görsel üret
+  const geminiRes = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        instances: [{ prompt: imagePrompt }],
-        parameters: { sampleCount: 1, aspectRatio: "16:9" },
+        contents: [{ parts: [{ text: imagePrompt }] }],
+        generationConfig: { responseModalities: ["IMAGE"] },
       }),
     }
   );
 
-  const rawText = await imagenRes.text();
+  const rawText = await geminiRes.text();
 
-  if (!imagenRes.ok) {
+  if (!geminiRes.ok) {
     return NextResponse.json({
-      error: `Imagen API hatası (${imagenRes.status}): ${rawText.slice(0, 300)}`,
+      error: `Gemini API hatası (${geminiRes.status}): ${rawText.slice(0, 300)}`,
       imagePrompt,
     }, { status: 500 });
   }
 
-  let imagenData: { predictions?: { bytesBase64Encoded?: string; mimeType?: string }[] };
+  let geminiData: { candidates?: { content?: { parts?: { inlineData?: { data: string; mimeType: string } }[] } }[] };
   try {
-    imagenData = JSON.parse(rawText);
+    geminiData = JSON.parse(rawText);
   } catch {
     return NextResponse.json({ error: `API yanıtı parse edilemedi: ${rawText.slice(0, 200)}` }, { status: 500 });
   }
 
-  const prediction = imagenData.predictions?.[0];
+  const parts = geminiData.candidates?.[0]?.content?.parts;
+  const imagePart = parts?.find(p => p.inlineData);
 
-  if (!prediction?.bytesBase64Encoded) {
+  if (!imagePart?.inlineData?.data) {
     return NextResponse.json({
-      error: "Imagen görsel döndürmedi",
+      error: "Gemini görsel döndürmedi",
       imagePrompt,
       raw: rawText.slice(0, 300),
     }, { status: 500 });
   }
 
   // 3. Supabase Storage'a yükle
-  const buffer = Buffer.from(prediction.bytesBase64Encoded, "base64");
-  const mimeType = prediction.mimeType || "image/png";
+  const buffer = Buffer.from(imagePart.inlineData.data, "base64");
+  const mimeType = imagePart.inlineData.mimeType || "image/png";
   const ext = mimeType.includes("jpeg") ? "jpg" : "png";
   const filename = `img-${id}-${Date.now()}.${ext}`;
 
