@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
+import { GoogleAuth } from "google-auth-library";
 
 export const maxDuration = 60;
 
@@ -25,10 +26,23 @@ Output: Just the prompt (1-2 sentences max), nothing else.`
   return (res.content[0] as { text: string }).text.trim();
 }
 
+async function getVertexAccessToken(): Promise<string> {
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+  if (!privateKey || !clientEmail) throw new Error("GOOGLE_PRIVATE_KEY veya GOOGLE_CLIENT_EMAIL tanımlı değil");
+
+  const auth = new GoogleAuth({
+    credentials: { client_email: clientEmail, private_key: privateKey },
+    scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+  });
+  const client = await auth.getClient();
+  const tokenResponse = await client.getAccessToken();
+  if (!tokenResponse.token) throw new Error("Access token alınamadı");
+  return tokenResponse.token;
+}
+
 export async function POST(req: NextRequest) {
-  const geminiKey = process.env.GEMINI_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (!geminiKey) return NextResponse.json({ error: "GEMINI_API_KEY Netlify'da tanımlı değil — Site Settings → Environment Variables'a ekleyin" }, { status: 500 });
   if (!anthropicKey) return NextResponse.json({ error: "ANTHROPIC_API_KEY tanımlı değil" }, { status: 500 });
 
   const body = await req.json().catch(() => ({}));
@@ -40,12 +54,23 @@ export async function POST(req: NextRequest) {
   // 1. Claude ile görsel prompt üret
   const imagePrompt = await generateImagePrompt(anthropic, title, platform || "Blog");
 
-  // 2. Imagen 3 ile görsel üret
-  const geminiRes = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${geminiKey}`,
+  // 2. Vertex AI Imagen 3 ile görsel üret
+  let accessToken: string;
+  try {
+    accessToken = await getVertexAccessToken();
+  } catch (e) {
+    return NextResponse.json({ error: `Auth hatası: ${String(e)}`, imagePrompt }, { status: 500 });
+  }
+
+  const projectId = "neural-reactor-477619-e6";
+  const vertexRes = await fetch(
+    `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/imagen-3.0-generate-001:predict`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${accessToken}`,
+      },
       body: JSON.stringify({
         instances: [{ prompt: imagePrompt }],
         parameters: { sampleCount: 1, aspectRatio: "16:9" },
@@ -53,11 +78,11 @@ export async function POST(req: NextRequest) {
     }
   );
 
-  const rawText = await geminiRes.text();
+  const rawText = await vertexRes.text();
 
-  if (!geminiRes.ok) {
+  if (!vertexRes.ok) {
     return NextResponse.json({
-      error: `Imagen API hatası (${geminiRes.status}): ${rawText.slice(0, 300)}`,
+      error: `Imagen API hatası (${vertexRes.status}): ${rawText.slice(0, 300)}`,
       imagePrompt,
     }, { status: 500 });
   }
