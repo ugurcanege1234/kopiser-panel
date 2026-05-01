@@ -140,8 +140,8 @@ export default function Reklam() {
 
       {/* Meta hata */}
       {activeTab === "meta" && metaError && (
-        <div style={{ padding: "12px 16px", backgroundColor: "#FEF2F2", border: "1px solid #FEE2E2", borderRadius: 8, color: "#DC2626", fontSize: 13, marginBottom: 16 }}>
-          Meta API hatası: {metaError}
+        <div style={{ padding: "12px 16px", backgroundColor: "#FEF3C7", border: "1px solid #FDE68A", borderRadius: 8, color: "#92400E", fontSize: 12, marginBottom: 16 }}>
+          ⚠️ Meta bağlantısı yenileniyor... Lütfen bekleyin.
         </div>
       )}
 
