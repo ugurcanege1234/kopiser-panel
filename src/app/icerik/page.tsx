@@ -114,7 +114,7 @@ export default function Icerik() {
         <div className="flex gap-3">
           <button onClick={handleGenerateBlog} disabled={generatingBlog}
             style={{ padding: "9px 18px", borderRadius: 8, backgroundColor: "#10B981", color: "#fff", border: "none", cursor: generatingBlog ? "wait" : "pointer", fontSize: 13, fontWeight: 600, opacity: generatingBlog ? 0.7 : 1 }}>
-            {generatingBlog ? "⏳ Üretiliyor..." : "🤖 AI Blog Üret"}
+            {generatingBlog ? "⏳ Üretiliyor..." : "🤖 AI İçerik Üret (Blog + Sosyal)"}
           </button>
           <button onClick={() => { setShowForm(true); setEditId(null); setForm(emptyForm); }}
             style={{ padding: "9px 18px", borderRadius: 8, backgroundColor: "#1F3A5F", color: "#fff", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>

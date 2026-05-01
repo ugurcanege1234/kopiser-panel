@@ -35,6 +35,60 @@ const TOPICS = [
   "Aylık sabit ücretli fotokopi kiralama modelinin faydaları",
 ];
 
+const SOCIAL_PLATFORMS = [
+  {
+    platform: "Instagram",
+    prompt: (topic: string) => `Kopiser (@kopiser.buro) için Instagram gönderisi yaz.
+Konu: "${topic}"
+Şirket: İzmir & İstanbul merkezli fotokopi makinesi kiralama ve teknik servis, 2010'dan beri hizmet veriyor.
+Kurallar:
+- Dil: Türkçe
+- 150-200 kelime
+- Samimi, profesyonel ve ilgi çekici ton
+- 8-10 alakalı hashtag ekle (#fotokopi #fotokopikiralama #izmir vb.)
+- CTA: "Detaylar için DM atın veya 0850... arayın" tarzı
+- Emoji kullanabilirsin
+Format: Sadece gönderi metnini yaz, başka açıklama ekleme.`,
+  },
+  {
+    platform: "Facebook",
+    prompt: (topic: string) => `Kopiser'in Facebook sayfası için gönderi yaz.
+Konu: "${topic}"
+Şirket: İzmir & İstanbul merkezli fotokopi makinesi kiralama ve teknik servis, 2010'dan beri hizmet veriyor.
+Kurallar:
+- Dil: Türkçe
+- 200-300 kelime
+- Bilgilendirici ve güven verici ton
+- Kurumsal müşterilere (ofis, firma, kamu) hitap et
+- CTA: web sitesi veya iletişim yönlendirmesi
+- 3-5 hashtag
+Format: Sadece gönderi metnini yaz.`,
+  },
+  {
+    platform: "TikTok",
+    prompt: (topic: string) => `Kopiser için TikTok video senaryosu yaz.
+Konu: "${topic}"
+Şirket: İzmir & İstanbul merkezli fotokopi makinesi kiralama ve teknik servis.
+Kurallar:
+- Dil: Türkçe
+- 30-45 saniyelik video senaryosu
+- Hızlı, enerjik ve ilgi çekici başlangıç (ilk 3 saniye çok önemli)
+- Hook + bilgi + CTA yapısı
+- Konuşma dili, samimi
+- Sahne açıklamaları köşeli parantez içinde: [Kameraya bak], [Ürünü göster] vb.
+Format: Sadece senaryoyu yaz.`,
+  },
+];
+
+async function generateContent(anthropic: Anthropic, systemPrompt: string): Promise<string> {
+  const response = await anthropic.messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 800,
+    messages: [{ role: "user", content: systemPrompt }],
+  });
+  return (response.content[0] as { text: string }).text.trim();
+}
+
 export async function POST(req: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "ANTHROPIC_API_KEY tanımlı değil" }, { status: 500 });
@@ -42,39 +96,46 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const siteFilter: string | null = body.site || null;
   const customTopic: string | null = body.topic || null;
+  const platformFilter: string | null = body.platform || null; // "all" | "blog" | "social"
+  const mode = platformFilter || "all";
 
   const anthropic = new Anthropic({ apiKey });
   const today = new Date();
   const dayIndex = today.getDate() % TOPICS.length;
 
-  // GSC'den zayıf/düşen kelimeleri çek — blog konusu olarak kullan
+  // Zayıf/düşen kelimeleri çek
   const { data: weakKeywords } = await supabase
     .from("seo_keywords")
-    .select("keyword, site, position, previous_position")
+    .select("keyword, site, position")
     .gt("position", 10)
     .order("position", { ascending: true })
     .limit(20);
 
-  const sitesToProcess = siteFilter ? SITES.filter(s => s.site === siteFilter) : SITES;
+  // Sırasız kelimeler de dahil et
+  const { data: nullKeywords } = await supabase
+    .from("seo_keywords")
+    .select("keyword, site, position")
+    .is("position", null)
+    .limit(10);
+
+  const allWeakKeywords = [...(weakKeywords || []), ...(nullKeywords || [])];
+
   const results = [];
 
-  for (let i = 0; i < sitesToProcess.length; i++) {
-    const site = sitesToProcess[i];
+  // BLOG içerikleri (her iki site için)
+  if (mode === "all" || mode === "blog") {
+    const sitesToProcess = siteFilter ? SITES.filter(s => s.site === siteFilter) : SITES;
 
-    // Bu site için zayıf kelime varsa onu kullan, yoksa genel konular
-    const siteWeakKw = (weakKeywords || []).find(k => k.site === site.site);
-    const topic = customTopic || (siteWeakKw
-      ? `"${siteWeakKw.keyword}" araması için rehber — ${siteWeakKw.position}. sıradan ilk 10'a nasıl girilir`
-      : TOPICS[(dayIndex + i) % TOPICS.length]);
-    const todayStr = today.toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
+    for (let i = 0; i < sitesToProcess.length; i++) {
+      const site = sitesToProcess[i];
+      const siteWeakKw = allWeakKeywords.find(k => k.site === site.site);
+      const topic = customTopic || (siteWeakKw
+        ? `"${siteWeakKw.keyword}" için kapsamlı rehber`
+        : TOPICS[(dayIndex + i) % TOPICS.length]);
+      const todayStr = today.toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
 
-    try {
-      const response = await anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1200,
-        messages: [{
-          role: "user",
-          content: `Sen Kopiser şirketinin SEO blog yazarısın. Kopiser, İzmir ve İstanbul merkezli, 2010'dan bu yana hizmet veren bir fotokopi makinesi kiralama ve teknik servis şirketidir.
+      try {
+        const prompt = `Sen Kopiser şirketinin SEO blog yazarısın. Kopiser, İzmir ve İstanbul merkezli, 2010'dan bu yana hizmet veren bir fotokopi makinesi kiralama ve teknik servis şirketidir.
 
 Site: ${site.site}
 Site odağı: ${site.focus}
@@ -88,40 +149,71 @@ Kurallar:
 - Yapı: Başlık + Giriş + 3-4 alt başlık + Sonuç
 - Kopiser'i doğal şekilde 2-3 kez bahset
 - Hedef anahtar kelimeleri doğal şekilde yerleştir
-- İletişim için "bize ulaşın" tarzı CTA ile bitir
-- Emoji veya markdown işaretleri kullanma
+- "Bize ulaşın" tarzı CTA ile bitir
+- Emoji veya markdown kullanma
 
-Yanıtı şu formatta ver:
-BAŞLIK: [başlık buraya]
+BAŞLIK: [başlık]
 İÇERİK:
-[içerik buraya]`,
-        }],
-      });
+[içerik]`;
 
-      const text = (response.content[0] as { text: string }).text;
-      const titleMatch = text.match(/BAŞLIK:\s*(.+)/);
-      const contentMatch = text.match(/İÇERİK:\s*([\s\S]+)/);
-      const title = titleMatch ? titleMatch[1].trim() : topic;
-      const content = contentMatch ? contentMatch[1].trim() : text;
+        const text = await generateContent(anthropic, prompt);
+        const titleMatch = text.match(/BAŞLIK:\s*(.+)/);
+        const contentMatch = text.match(/İÇERİK:\s*([\s\S]+)/);
+        const title = titleMatch ? titleMatch[1].trim() : topic;
+        const content = contentMatch ? contentMatch[1].trim() : text;
 
-      const scheduledAt = new Date(today);
-      scheduledAt.setHours(10 + i * 2, 0, 0, 0);
+        const scheduledAt = new Date(today);
+        scheduledAt.setHours(10 + i * 2, 0, 0, 0);
 
-      const { error } = await supabase.from("content_items").insert([{
-        title,
-        platform: "Blog",
-        status: "Yayına Hazır",
-        scheduled_at: scheduledAt.toISOString(),
-        content_text: content,
-        notes: `Site: ${site.site} | AI tarafından oluşturuldu`,
-        assigned_to: "AI",
-      }]);
+        const { error } = await supabase.from("content_items").insert([{
+          title,
+          platform: "Blog",
+          status: "Yayına Hazır",
+          scheduled_at: scheduledAt.toISOString(),
+          content_text: content,
+          notes: `Site: ${site.site} | ${siteWeakKw ? `SEO hedef: "${siteWeakKw.keyword}"` : "Genel konu"} | AI`,
+          assigned_to: "AI",
+        }]);
 
-      results.push({ site: site.site, success: !error, title, error: error?.message });
-    } catch (err) {
-      results.push({ site: site.site, success: false, error: String(err) });
+        results.push({ type: "blog", site: site.site, success: !error, title });
+      } catch (err) {
+        results.push({ type: "blog", site: site.site, success: false, error: String(err) });
+      }
     }
   }
 
-  return NextResponse.json({ ok: true, results });
+  // SOSYAL MEDYA içerikleri
+  if (mode === "all" || mode === "social") {
+    // Genel konuyu belirle (zayıf kelime veya günlük konu)
+    const generalWeakKw = allWeakKeywords[dayIndex % Math.max(allWeakKeywords.length, 1)];
+    const socialTopic = customTopic || (generalWeakKw
+      ? `${generalWeakKw.keyword} — fotokopi kiralama avantajları`
+      : TOPICS[(dayIndex + 2) % TOPICS.length]);
+
+    for (let i = 0; i < SOCIAL_PLATFORMS.length; i++) {
+      const sp = SOCIAL_PLATFORMS[i];
+      try {
+        const content = await generateContent(anthropic, sp.prompt(socialTopic));
+        const scheduledAt = new Date(today);
+        scheduledAt.setHours(14 + i, 0, 0, 0);
+
+        const { error } = await supabase.from("content_items").insert([{
+          title: `${sp.platform}: ${socialTopic.slice(0, 60)}`,
+          platform: sp.platform,
+          status: "Yayına Hazır",
+          scheduled_at: scheduledAt.toISOString(),
+          content_text: content,
+          notes: `AI tarafından oluşturuldu | Konu: ${socialTopic.slice(0, 80)}`,
+          assigned_to: "AI",
+        }]);
+
+        results.push({ type: "social", platform: sp.platform, success: !error });
+      } catch (err) {
+        results.push({ type: "social", platform: sp.platform, success: false, error: String(err) });
+      }
+    }
+  }
+
+  const succeeded = results.filter(r => r.success).length;
+  return NextResponse.json({ ok: true, results, summary: `${succeeded}/${results.length} içerik oluşturuldu` });
 }

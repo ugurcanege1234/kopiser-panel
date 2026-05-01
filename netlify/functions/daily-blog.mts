@@ -40,21 +40,99 @@ const TOPICS = [
   "Eğitim kurumları için fotokopi makinesi kiralama rehberi",
 ];
 
-async function generateBlogPost(site: typeof SITES[0], topic: string): Promise<{ title: string; content: string }> {
-  const today = new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
+const SOCIAL_PLATFORMS = [
+  {
+    platform: "Instagram",
+    prompt: (topic: string) => `Kopiser (@kopiser.buro) için Instagram gönderisi yaz.
+Konu: "${topic}"
+Şirket: İzmir & İstanbul merkezli fotokopi makinesi kiralama ve teknik servis, 2010'dan beri hizmet veriyor.
+Kurallar:
+- Dil: Türkçe
+- 150-200 kelime
+- Samimi, profesyonel ve ilgi çekici ton
+- 8-10 alakalı hashtag ekle (#fotokopi #fotokopikiralama #izmir vb.)
+- CTA: "Detaylar için DM atın veya 0850... arayın" tarzı
+- Emoji kullanabilirsin
+Format: Sadece gönderi metnini yaz, başka açıklama ekleme.`,
+  },
+  {
+    platform: "Facebook",
+    prompt: (topic: string) => `Kopiser'in Facebook sayfası için gönderi yaz.
+Konu: "${topic}"
+Şirket: İzmir & İstanbul merkezli fotokopi makinesi kiralama ve teknik servis, 2010'dan beri hizmet veriyor.
+Kurallar:
+- Dil: Türkçe
+- 200-300 kelime
+- Bilgilendirici ve güven verici ton
+- Kurumsal müşterilere (ofis, firma, kamu) hitap et
+- CTA: web sitesi veya iletişim yönlendirmesi
+- 3-5 hashtag
+Format: Sadece gönderi metnini yaz.`,
+  },
+  {
+    platform: "TikTok",
+    prompt: (topic: string) => `Kopiser için TikTok video senaryosu yaz.
+Konu: "${topic}"
+Şirket: İzmir & İstanbul merkezli fotokopi makinesi kiralama ve teknik servis.
+Kurallar:
+- Dil: Türkçe
+- 30-45 saniyelik video senaryosu
+- Hızlı, enerjik ve ilgi çekici başlangıç (ilk 3 saniye çok önemli)
+- Hook + bilgi + CTA yapısı
+- Konuşma dili, samimi
+- Sahne açıklamaları köşeli parantez içinde: [Kameraya bak], [Ürünü göster] vb.
+Format: Sadece senaryoyu yaz.`,
+  },
+];
 
+async function generate(prompt: string, maxTokens = 800): Promise<string> {
   const response = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 1200,
-    messages: [{
-      role: "user",
-      content: `Sen Kopiser şirketinin SEO blog yazarısın. Kopiser, İzmir ve İstanbul merkezli, 2010'dan bu yana hizmet veren bir fotokopi makinesi kiralama ve teknik servis şirketidir.
+    max_tokens: maxTokens,
+    messages: [{ role: "user", content: prompt }],
+  });
+  return (response.content[0] as { text: string }).text.trim();
+}
+
+export default async () => {
+  const today = new Date();
+  const dayIndex = today.getDate() % TOPICS.length;
+
+  // Zayıf/sırasız kelimeleri çek
+  const { data: weakKeywords } = await supabase
+    .from("seo_keywords")
+    .select("keyword, site, position")
+    .gt("position", 10)
+    .order("position", { ascending: true })
+    .limit(10);
+
+  const { data: nullKeywords } = await supabase
+    .from("seo_keywords")
+    .select("keyword, site, position")
+    .is("position", null)
+    .limit(5);
+
+  const allWeakKeywords = [...(weakKeywords || []), ...(nullKeywords || [])];
+
+  const results = [];
+
+  // Blog içerikleri — 2 site
+  for (let i = 0; i < SITES.length; i++) {
+    const site = SITES[i];
+    const siteWeakKw = allWeakKeywords.find(k => k.site === site.site);
+    const topic = siteWeakKw
+      ? `"${siteWeakKw.keyword}" için kapsamlı rehber`
+      : TOPICS[(dayIndex + i) % TOPICS.length];
+    const todayStr = today.toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
+
+    try {
+      const prompt = `Sen Kopiser şirketinin SEO blog yazarısın. Kopiser, İzmir ve İstanbul merkezli, 2010'dan bu yana hizmet veren bir fotokopi makinesi kiralama ve teknik servis şirketidir.
 
 Site: ${site.site}
 Site odağı: ${site.focus}
 Hedef anahtar kelimeler: ${site.keywords.join(", ")}
 
-Bugün için (${today}) şu konuda bir blog yazısı yaz: "${topic}"
+Bugün için (${todayStr}) şu konuda bir blog yazısı yaz: "${topic}"
 
 Kurallar:
 - Dil: Türkçe
@@ -62,39 +140,18 @@ Kurallar:
 - Yapı: Başlık + Giriş + 3-4 alt başlık + Sonuç
 - Kopiser'i doğal şekilde 2-3 kez bahset
 - Hedef anahtar kelimeleri doğal şekilde yerleştir
-- İletişim için "bize ulaşın" tarzı CTA ile bitir
-- Emoji veya markdown işaretleri kullanma
+- "Bize ulaşın" tarzı CTA ile bitir
+- Emoji veya markdown kullanma
 
-Yanıtı şu formatta ver:
-BAŞLIK: [başlık buraya]
+BAŞLIK: [başlık]
 İÇERİK:
-[içerik buraya]`,
-    }],
-  });
+[içerik]`;
 
-  const text = (response.content[0] as { text: string }).text;
-  const titleMatch = text.match(/BAŞLIK:\s*(.+)/);
-  const contentMatch = text.match(/İÇERİK:\s*([\s\S]+)/);
-
-  return {
-    title: titleMatch ? titleMatch[1].trim() : topic,
-    content: contentMatch ? contentMatch[1].trim() : text,
-  };
-}
-
-export default async () => {
-  const today = new Date();
-  const dayIndex = today.getDate() % TOPICS.length;
-
-  const results = [];
-
-  for (let i = 0; i < SITES.length; i++) {
-    const site = SITES[i];
-    const topicIndex = (dayIndex + i) % TOPICS.length;
-    const topic = TOPICS[topicIndex];
-
-    try {
-      const { title, content } = await generateBlogPost(site, topic);
+      const text = await generate(prompt, 1200);
+      const titleMatch = text.match(/BAŞLIK:\s*(.+)/);
+      const contentMatch = text.match(/İÇERİK:\s*([\s\S]+)/);
+      const title = titleMatch ? titleMatch[1].trim() : topic;
+      const content = contentMatch ? contentMatch[1].trim() : text;
 
       const scheduledAt = new Date(today);
       scheduledAt.setHours(10 + i * 2, 0, 0, 0);
@@ -105,22 +162,47 @@ export default async () => {
         status: "Yayına Hazır",
         scheduled_at: scheduledAt.toISOString(),
         content_text: content,
-        notes: `Site: ${site.site} | AI tarafından oluşturuldu`,
+        notes: `Site: ${site.site} | ${siteWeakKw ? `SEO hedef: "${siteWeakKw.keyword}"` : "Genel konu"} | AI`,
         assigned_to: "AI",
       }]);
 
-      if (error) {
-        results.push({ site: site.site, success: false, error: error.message });
-      } else {
-        results.push({ site: site.site, success: true, title });
-      }
+      results.push({ type: "blog", site: site.site, success: !error, title });
     } catch (err) {
-      results.push({ site: site.site, success: false, error: String(err) });
+      results.push({ type: "blog", site: site.site, success: false, error: String(err) });
     }
   }
 
-  console.log("Daily blog generation results:", JSON.stringify(results));
-  return new Response(JSON.stringify({ ok: true, results }), { status: 200 });
+  // Sosyal medya içerikleri
+  const generalWeakKw = allWeakKeywords[dayIndex % Math.max(allWeakKeywords.length, 1)];
+  const socialTopic = generalWeakKw
+    ? `${generalWeakKw.keyword} — fotokopi kiralama avantajları`
+    : TOPICS[(dayIndex + 2) % TOPICS.length];
+
+  for (let i = 0; i < SOCIAL_PLATFORMS.length; i++) {
+    const sp = SOCIAL_PLATFORMS[i];
+    try {
+      const content = await generate(sp.prompt(socialTopic));
+      const scheduledAt = new Date(today);
+      scheduledAt.setHours(14 + i, 0, 0, 0);
+
+      const { error } = await supabase.from("content_items").insert([{
+        title: `${sp.platform}: ${socialTopic.slice(0, 60)}`,
+        platform: sp.platform,
+        status: "Yayına Hazır",
+        scheduled_at: scheduledAt.toISOString(),
+        content_text: content,
+        notes: `AI tarafından oluşturuldu | Konu: ${socialTopic.slice(0, 80)}`,
+        assigned_to: "AI",
+      }]);
+
+      results.push({ type: "social", platform: sp.platform, success: !error });
+    } catch (err) {
+      results.push({ type: "social", platform: sp.platform, success: false, error: String(err) });
+    }
+  }
+
+  console.log("Daily content generation results:", JSON.stringify(results));
+  return new Response(JSON.stringify({ ok: true, results, total: results.length }), { status: 200 });
 };
 
 export const config: Config = {
