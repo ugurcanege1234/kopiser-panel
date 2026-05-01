@@ -33,46 +33,197 @@ const statusStyle: Record<string, { bg: string; color: string }> = {
 
 const emptyForm = { title: "", platform: "Instagram", status: "Taslak", scheduled_at: "", content_text: "", notes: "" };
 
+function ContentDetailModal({
+  item,
+  onClose,
+  onDelete,
+  onUpdate,
+  onGenerateImage,
+  generatingImage,
+}: {
+  item: ContentItem;
+  onClose: () => void;
+  onDelete: (id: string) => void;
+  onUpdate: (id: string, data: Partial<ContentItem>) => void;
+  onGenerateImage: (item: ContentItem) => void;
+  generatingImage: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState(item.content_text || "");
+  const [editStatus, setEditStatus] = useState(item.status);
+  const [saving, setSaving] = useState(false);
+  const st = statusStyle[item.status] || { bg: "#F1F5F9", color: "#64748B" };
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onUpdate(item.id, { content_text: editText, status: editStatus });
+    setSaving(false);
+    setEditing(false);
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(item.content_text || "");
+  };
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center z-50"
+      style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="rounded-2xl overflow-hidden flex"
+        style={{ backgroundColor: "#fff", width: "100%", maxWidth: 860, maxHeight: "90vh", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
+
+        {/* Sol: Görsel */}
+        <div style={{ width: 340, flexShrink: 0, backgroundColor: "#F7F9FC", display: "flex", flexDirection: "column" }}>
+          {item.image_url ? (
+            <img src={item.image_url} alt={item.title}
+              style={{ width: "100%", height: 280, objectFit: "cover" }} />
+          ) : (
+            <div className="flex flex-col items-center justify-center" style={{ height: 280, gap: 12 }}>
+              <div style={{ fontSize: 40 }}>🖼️</div>
+              <p style={{ fontSize: 12, color: "#9CA3AF", textAlign: "center", padding: "0 20px" }}>
+                Bu içerik için henüz görsel yok
+              </p>
+              <button
+                onClick={() => onGenerateImage(item)}
+                disabled={generatingImage}
+                style={{ padding: "8px 20px", borderRadius: 8, backgroundColor: "#7C3AED", color: "#fff", border: "none", cursor: generatingImage ? "wait" : "pointer", fontSize: 12, fontWeight: 600, opacity: generatingImage ? 0.6 : 1 }}>
+                {generatingImage ? "⏳ Üretiliyor..." : "🎨 Gemini ile Görsel Üret"}
+              </button>
+            </div>
+          )}
+          {item.image_url && (
+            <div style={{ padding: "12px 16px", borderTop: "1px solid #E5EAF0" }}>
+              <button
+                onClick={() => onGenerateImage(item)}
+                disabled={generatingImage}
+                style={{ width: "100%", padding: "7px", borderRadius: 8, backgroundColor: "#7C3AED", color: "#fff", border: "none", cursor: generatingImage ? "wait" : "pointer", fontSize: 12, fontWeight: 600, opacity: generatingImage ? 0.6 : 1 }}>
+                {generatingImage ? "⏳ Yenileniyor..." : "🎨 Görseli Yenile"}
+              </button>
+            </div>
+          )}
+          {/* Meta bilgiler */}
+          <div style={{ padding: "16px", flex: 1 }}>
+            <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Detaylar</div>
+            <div style={{ fontSize: 12, color: "#6B7280", lineHeight: 2 }}>
+              <div><strong style={{ color: "#1A1F2E" }}>Platform:</strong> {platformEmoji[item.platform]} {item.platform}</div>
+              <div><strong style={{ color: "#1A1F2E" }}>Tarih:</strong> {item.scheduled_at ? new Date(item.scheduled_at).toLocaleDateString("tr-TR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }) : "—"}</div>
+              <div><strong style={{ color: "#1A1F2E" }}>Atanan:</strong> {item.assigned_to || "—"}</div>
+              {item.notes && <div style={{ marginTop: 8, padding: "8px 10px", backgroundColor: "#F7F9FC", borderRadius: 6, fontSize: 11, lineHeight: 1.5 }}>{item.notes}</div>}
+            </div>
+          </div>
+        </div>
+
+        {/* Sağ: İçerik */}
+        <div className="flex flex-col" style={{ flex: 1, overflow: "hidden" }}>
+          {/* Header */}
+          <div className="flex justify-between items-start" style={{ padding: "20px 24px 16px", borderBottom: "1px solid #E5EAF0" }}>
+            <div style={{ flex: 1, marginRight: 16 }}>
+              <div className="flex items-center gap-2 mb-1">
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#C8102E", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                  {platformEmoji[item.platform]} {item.platform}
+                </span>
+                {editing ? (
+                  <select value={editStatus} onChange={e => setEditStatus(e.target.value)}
+                    style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10, border: "1px solid #E5EAF0", outline: "none", backgroundColor: "#fff" }}>
+                    {STATUSES.map(s => <option key={s}>{s}</option>)}
+                  </select>
+                ) : (
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10, backgroundColor: st.bg, color: st.color }}>
+                    {item.status}
+                  </span>
+                )}
+              </div>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: "#1A1F2E", lineHeight: 1.3 }}>{item.title}</h2>
+            </div>
+            <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#9CA3AF", lineHeight: 1, flexShrink: 0 }}>×</button>
+          </div>
+
+          {/* İçerik metni */}
+          <div style={{ flex: 1, overflow: "auto", padding: "16px 24px" }}>
+            {editing ? (
+              <textarea value={editText} onChange={e => setEditText(e.target.value)}
+                style={{ width: "100%", height: "100%", minHeight: 300, padding: "12px", borderRadius: 8, border: "1px solid #E5EAF0", fontSize: 13, lineHeight: 1.7, outline: "none", resize: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+            ) : (
+              <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.8, whiteSpace: "pre-wrap" }}>
+                {item.content_text || <span style={{ color: "#9CA3AF" }}>İçerik yok</span>}
+              </div>
+            )}
+          </div>
+
+          {/* Footer butonlar */}
+          <div className="flex justify-between items-center" style={{ padding: "14px 24px", borderTop: "1px solid #E5EAF0", backgroundColor: "#FAFBFC" }}>
+            <div className="flex gap-2">
+              {!editing && (
+                <button onClick={handleCopy}
+                  style={{ padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, border: "1px solid #E5EAF0", backgroundColor: "#fff", cursor: "pointer", color: "#6B7280" }}>
+                  📋 Kopyala
+                </button>
+              )}
+              {editing ? (
+                <>
+                  <button onClick={() => setEditing(false)}
+                    style={{ padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, border: "1px solid #E5EAF0", backgroundColor: "#fff", cursor: "pointer", color: "#6B7280" }}>
+                    İptal
+                  </button>
+                  <button onClick={handleSave} disabled={saving}
+                    style={{ padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 700, backgroundColor: "#1F3A5F", color: "#fff", border: "none", cursor: "pointer", opacity: saving ? 0.7 : 1 }}>
+                    {saving ? "Kaydediliyor..." : "Kaydet"}
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => setEditing(true)}
+                  style={{ padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, border: "1px solid #E5EAF0", backgroundColor: "#fff", cursor: "pointer", color: "#1F3A5F" }}>
+                  ✏️ Düzenle
+                </button>
+              )}
+            </div>
+            <button onClick={() => { if (confirm("Silinsin mi?")) { onDelete(item.id); onClose(); } }}
+              style={{ padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, border: "1px solid #FEE2E2", backgroundColor: "#FEF2F2", cursor: "pointer", color: "#EF4444" }}>
+              Sil
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Icerik() {
   const [items, setItems] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
-  const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [filterStatus, setFilterStatus] = useState("Hepsi");
   const [generatingBlog, setGeneratingBlog] = useState(false);
   const [blogResult, setBlogResult] = useState<string | null>(null);
   const [generatingImageId, setGeneratingImageId] = useState<string | null>(null);
+  const [selectedItem, setSelectedItem] = useState<ContentItem | null>(null);
 
-  const fetch = async () => {
+  const fetchItems = async () => {
     const { data } = await supabase.from("content_items").select("*").order("scheduled_at", { ascending: true });
     setItems(data || []);
     setLoading(false);
   };
 
-  useEffect(() => { fetch(); }, []);
+  useEffect(() => { fetchItems(); }, []);
 
   const handleSubmit = async () => {
     setSaving(true);
     const payload = { ...form, scheduled_at: form.scheduled_at || null };
-    if (editId) await supabase.from("content_items").update(payload).eq("id", editId);
-    else await supabase.from("content_items").insert([payload]);
-    setSaving(false); setShowForm(false); setEditId(null); setForm(emptyForm); fetch();
-  };
-
-  const handleEdit = (item: ContentItem) => {
-    setForm({
-      title: item.title, platform: item.platform, status: item.status,
-      scheduled_at: item.scheduled_at ? item.scheduled_at.slice(0, 16) : "",
-      content_text: item.content_text || "", notes: item.notes || "",
-    });
-    setEditId(item.id); setShowForm(true);
+    await supabase.from("content_items").insert([payload]);
+    setSaving(false); setShowForm(false); setForm(emptyForm); fetchItems();
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Silinsin mi?")) return;
-    await supabase.from("content_items").delete().eq("id", id); fetch();
+    await supabase.from("content_items").delete().eq("id", id);
+    fetchItems();
+  };
+
+  const handleUpdate = async (id: string, data: Partial<ContentItem>) => {
+    await supabase.from("content_items").update(data).eq("id", id);
+    fetchItems();
+    if (selectedItem?.id === id) setSelectedItem(prev => prev ? { ...prev, ...data } : null);
   };
 
   const handleGenerateBlog = async () => {
@@ -89,8 +240,8 @@ export default function Icerik() {
       try { json = JSON.parse(text); } catch { json = { error: `Sunucu yanıtı: ${text.slice(0, 200)}` }; }
       if (json.ok && json.results) {
         const succeeded = json.results.filter(r => r.success).length;
-        setBlogResult(`✓ ${succeeded}/${json.results.length} blog yazısı oluşturuldu ve takvime eklendi`);
-        fetch();
+        setBlogResult(`✓ ${succeeded}/${json.results.length} içerik oluşturuldu`);
+        fetchItems();
       } else {
         setBlogResult(`Hata: ${json.error || `HTTP ${res.status}`}`);
       }
@@ -109,7 +260,10 @@ export default function Icerik() {
         body: JSON.stringify({ id: item.id, title: item.title, platform: item.platform }),
       });
       const data = await res.json();
-      if (data.ok) fetch();
+      if (data.ok) {
+        fetchItems();
+        if (selectedItem?.id === item.id) setSelectedItem(prev => prev ? { ...prev, image_url: data.imageUrl } : null);
+      }
     } catch { /* sessizce geç */ }
     setGeneratingImageId(null);
   };
@@ -130,9 +284,9 @@ export default function Icerik() {
         <div className="flex gap-3">
           <button onClick={handleGenerateBlog} disabled={generatingBlog}
             style={{ padding: "9px 18px", borderRadius: 8, backgroundColor: "#10B981", color: "#fff", border: "none", cursor: generatingBlog ? "wait" : "pointer", fontSize: 13, fontWeight: 600, opacity: generatingBlog ? 0.7 : 1 }}>
-            {generatingBlog ? "⏳ Üretiliyor..." : "🤖 AI İçerik Üret (Blog + Sosyal)"}
+            {generatingBlog ? "⏳ Üretiliyor..." : "🤖 AI İçerik Üret"}
           </button>
-          <button onClick={() => { setShowForm(true); setEditId(null); setForm(emptyForm); }}
+          <button onClick={() => { setShowForm(true); setForm(emptyForm); }}
             style={{ padding: "9px 18px", borderRadius: 8, backgroundColor: "#1F3A5F", color: "#fff", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
             + Yeni İçerik
           </button>
@@ -166,60 +320,48 @@ export default function Icerik() {
       {loading ? (
         <p style={{ color: "#6B7280" }}>Yükleniyor...</p>
       ) : (
-        <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
+        <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
           {filtered.map(item => {
             const st = statusStyle[item.status] || { bg: "#F1F5F9", color: "#64748B" };
             return (
-              <div key={item.id} className="rounded-xl flex flex-col justify-between"
+              <div key={item.id}
+                onClick={() => setSelectedItem(item)}
+                className="rounded-xl flex flex-col cursor-pointer"
                 style={{ backgroundColor: "#fff", border: "1px solid #E5EAF0", overflow: "hidden",
-                  boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.06)", minHeight: 160 }}>
-                {item.image_url && (
-                  <div style={{ width: "100%", height: 160, overflow: "hidden", backgroundColor: "#F7F9FC" }}>
-                    <img src={item.image_url} alt={item.title}
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.06)", transition: "box-shadow 0.15s" }}
+                onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 4px 20px rgba(15,23,42,0.12)")}
+                onMouseLeave={e => (e.currentTarget.style.boxShadow = "0 1px 2px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.06)")}>
+                {/* Görsel */}
+                {item.image_url ? (
+                  <div style={{ width: "100%", height: 150, overflow: "hidden", backgroundColor: "#F7F9FC" }}>
+                    <img src={item.image_url} alt={item.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center" style={{ height: 80, backgroundColor: "#F7F9FC" }}>
+                    <span style={{ fontSize: 28, opacity: 0.4 }}>{platformEmoji[item.platform] || "🌐"}</span>
                   </div>
                 )}
-                <div style={{ padding: "16px 18px", flex: 1 }}>
-                  <div className="flex justify-between items-start mb-2">
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#C8102E", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                {/* İçerik */}
+                <div style={{ padding: "14px 16px", flex: 1 }}>
+                  <div className="flex justify-between items-center mb-2">
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#C8102E", textTransform: "uppercase", letterSpacing: 0.5 }}>
                       {platformEmoji[item.platform]} {item.platform}
                     </span>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10, backgroundColor: st.bg, color: st.color }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10, backgroundColor: st.bg, color: st.color }}>
                       {item.status}
                     </span>
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1A1F2E", marginBottom: 8, lineHeight: 1.3 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#1A1F2E", lineHeight: 1.3, marginBottom: 6 }}>
                     {item.title}
                   </div>
                   {item.content_text && (
-                    <div style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.4, marginBottom: 8 }}>
-                      {item.content_text.slice(0, 80)}{item.content_text.length > 80 ? "..." : ""}
+                    <div style={{ fontSize: 11, color: "#9CA3AF", lineHeight: 1.4 }}>
+                      {item.content_text.slice(0, 65)}{item.content_text.length > 65 ? "..." : ""}
                     </div>
                   )}
                 </div>
-                <div className="flex justify-between items-center mt-3 pt-3" style={{ borderTop: "1px solid #F1F5F9", padding: "0 18px 16px" }}>
-                  <span style={{ fontSize: 11, color: "#6B7280" }}>
-                    {item.scheduled_at ? new Date(item.scheduled_at).toLocaleDateString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Tarih yok"}
-                  </span>
-                  <div className="flex gap-2">
-                    {!item.image_url && (
-                      <button
-                        onClick={() => handleGenerateImage(item)}
-                        disabled={generatingImageId === item.id}
-                        title="Gemini ile görsel üret"
-                        style={{ padding: "3px 10px", fontSize: 11, fontWeight: 600, border: "none", borderRadius: 6, cursor: generatingImageId === item.id ? "wait" : "pointer", backgroundColor: "#7C3AED", color: "#fff", opacity: generatingImageId === item.id ? 0.6 : 1 }}>
-                        {generatingImageId === item.id ? "⏳" : "🎨"}
-                      </button>
-                    )}
-                    <button onClick={() => handleEdit(item)}
-                      style={{ padding: "3px 10px", fontSize: 11, fontWeight: 600, border: "1px solid #E5EAF0", borderRadius: 6, cursor: "pointer", backgroundColor: "#fff", color: "#1F3A5F" }}>
-                      Düzenle
-                    </button>
-                    <button onClick={() => handleDelete(item.id)}
-                      style={{ padding: "3px 10px", fontSize: 11, fontWeight: 600, border: "1px solid #FEE2E2", borderRadius: 6, cursor: "pointer", backgroundColor: "#FEF2F2", color: "#EF4444" }}>
-                      Sil
-                    </button>
-                  </div>
+                <div style={{ padding: "8px 16px 12px", fontSize: 11, color: "#9CA3AF" }}>
+                  {item.scheduled_at ? new Date(item.scheduled_at).toLocaleDateString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Tarih yok"}
                 </div>
               </div>
             );
@@ -230,14 +372,24 @@ export default function Icerik() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Detail Modal */}
+      {selectedItem && (
+        <ContentDetailModal
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+          onDelete={handleDelete}
+          onUpdate={handleUpdate}
+          onGenerateImage={handleGenerateImage}
+          generatingImage={generatingImageId === selectedItem.id}
+        />
+      )}
+
+      {/* Yeni İçerik Modal */}
       {showForm && (
         <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
           onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
           <div className="rounded-2xl overflow-y-auto" style={{ backgroundColor: "#fff", width: "100%", maxWidth: 520, maxHeight: "90vh", padding: "28px 32px" }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#1A1F2E", marginBottom: 20 }}>
-              {editId ? "İçerik Düzenle" : "Yeni İçerik Ekle"}
-            </h2>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#1A1F2E", marginBottom: 20 }}>Yeni İçerik Ekle</h2>
             <div className="flex flex-col gap-4">
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 6 }}>Başlık</label>
@@ -283,7 +435,7 @@ export default function Icerik() {
               </button>
               <button onClick={handleSubmit} disabled={saving}
                 style={{ padding: "9px 20px", borderRadius: 8, fontSize: 13, fontWeight: 600, backgroundColor: "#1F3A5F", color: "#fff", border: "none", cursor: "pointer", opacity: saving ? 0.7 : 1 }}>
-                {saving ? "Kaydediliyor..." : editId ? "Güncelle" : "Ekle"}
+                {saving ? "Kaydediliyor..." : "Ekle"}
               </button>
             </div>
           </div>
