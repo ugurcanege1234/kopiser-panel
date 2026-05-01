@@ -40,6 +40,7 @@ function ContentDetailModal({
   onUpdate,
   onGenerateImage,
   generatingImage,
+  imageError,
 }: {
   item: ContentItem;
   onClose: () => void;
