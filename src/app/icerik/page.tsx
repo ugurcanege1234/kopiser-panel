@@ -40,6 +40,8 @@ export default function Icerik() {
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [filterStatus, setFilterStatus] = useState("Hepsi");
+  const [generatingBlog, setGeneratingBlog] = useState(false);
+  const [blogResult, setBlogResult] = useState<string | null>(null);
 
   const fetch = async () => {
     const { data } = await supabase.from("content_items").select("*").order("scheduled_at", { ascending: true });
@@ -71,6 +73,25 @@ export default function Icerik() {
     await supabase.from("content_items").delete().eq("id", id); fetch();
   };
 
+  const handleGenerateBlog = async () => {
+    setGeneratingBlog(true);
+    setBlogResult(null);
+    try {
+      const res = await window.fetch("/api/blog/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const json = await res.json();
+      if (json.ok) {
+        const succeeded = json.results.filter((r: { success: boolean }) => r.success).length;
+        setBlogResult(`✓ ${succeeded}/${json.results.length} blog yazısı oluşturuldu ve takvime eklendi`);
+        fetch();
+      } else {
+        setBlogResult(`Hata: ${json.error}`);
+      }
+    } catch {
+      setBlogResult("Blog üretimi sırasında bir hata oluştu");
+    }
+    setGeneratingBlog(false);
+  };
+
   const filtered = filterStatus === "Hepsi" ? items : items.filter(i => i.status === filterStatus);
 
   return (
@@ -84,11 +105,25 @@ export default function Icerik() {
             {items.length} içerik · {items.filter(i => i.status === "Yayına Hazır").length} yayına hazır
           </p>
         </div>
-        <button onClick={() => { setShowForm(true); setEditId(null); setForm(emptyForm); }}
-          style={{ padding: "9px 18px", borderRadius: 8, backgroundColor: "#1F3A5F", color: "#fff", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
-          + Yeni İçerik
-        </button>
+        <div className="flex gap-3">
+          <button onClick={handleGenerateBlog} disabled={generatingBlog}
+            style={{ padding: "9px 18px", borderRadius: 8, backgroundColor: "#10B981", color: "#fff", border: "none", cursor: generatingBlog ? "wait" : "pointer", fontSize: 13, fontWeight: 600, opacity: generatingBlog ? 0.7 : 1 }}>
+            {generatingBlog ? "⏳ Üretiliyor..." : "🤖 AI Blog Üret"}
+          </button>
+          <button onClick={() => { setShowForm(true); setEditId(null); setForm(emptyForm); }}
+            style={{ padding: "9px 18px", borderRadius: 8, backgroundColor: "#1F3A5F", color: "#fff", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+            + Yeni İçerik
+          </button>
+        </div>
       </div>
+
+      {blogResult && (
+        <div style={{ padding: "10px 16px", backgroundColor: blogResult.startsWith("✓") ? "#D1FAE5" : "#FEE2E2",
+          border: `1px solid ${blogResult.startsWith("✓") ? "#6EE7B7" : "#FCA5A5"}`,
+          borderRadius: 8, color: blogResult.startsWith("✓") ? "#059669" : "#DC2626", fontSize: 13, marginBottom: 16 }}>
+          {blogResult}
+        </div>
+      )}
 
       {/* Filtre */}
       <div className="flex gap-3 mb-5 flex-wrap">
