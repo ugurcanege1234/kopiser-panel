@@ -49,7 +49,33 @@ function TeklifModal({ lead, onClose }: { lead: LeadForQuote; onClose: () => voi
   const quoteNo = `KOP-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
 
   const handlePrint = () => {
-    window.print();
+    const el = document.getElementById("teklif-print");
+    if (!el) return;
+    const win = window.open("", "_blank", "width=900,height=1200");
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Teklif</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #fff; }
+    @page { size: A4; margin: 0; }
+    @media print { body { margin: 0; } }
+  </style>
+</head>
+<body>
+  ${el.outerHTML}
+  <script>
+    window.onload = function() {
+      window.print();
+      setTimeout(function() { window.close(); }, 1000);
+    };
+  <\/script>
+</body>
+</html>`);
+    win.document.close();
   };
 
   if (preview) {

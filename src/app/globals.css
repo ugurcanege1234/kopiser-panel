@@ -128,3 +128,39 @@
     @apply font-sans;
   }
 }
+
+@media print {
+  /* Sayfadaki her şeyi gizle */
+  body > * {
+    display: none !important;
+  }
+
+  /* Sadece teklif A4 içeriğini göster */
+  #teklif-print {
+    display: block !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Teklif içeriğinin parent'larını da göster */
+  #teklif-print,
+  #teklif-print * {
+    visibility: visible !important;
+  }
+
+  /* Toolbar ve modal overlay'i gizle */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 0;
+  }
+}
