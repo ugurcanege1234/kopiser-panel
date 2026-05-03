@@ -53,17 +53,24 @@ function TeklifModal({ lead, onClose }: { lead: LeadForQuote; onClose: () => voi
   };
 
   if (preview) {
+    const includedServices = [
+      { key: "includes_service", label: "Teknik Servis" },
+      { key: "includes_toner", label: "Toner / Kartuş" },
+      { key: "includes_parts", label: "Yedek Parça" },
+      { key: "includes_drum", label: "Drum Ünitesi" },
+    ].filter(item => q[item.key as keyof QuoteData]);
+
     return (
-      <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-        <div className="rounded-2xl overflow-y-auto" style={{ backgroundColor: "#fff", width: "100%", maxWidth: 680, maxHeight: "95vh", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
-          {/* Yazdır toolbar */}
+      <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
+        <div className="rounded-2xl overflow-y-auto" style={{ backgroundColor: "#fff", width: "100%", maxWidth: 720, maxHeight: "95vh", boxShadow: "0 25px 80px rgba(0,0,0,0.3)" }}>
+          {/* Toolbar */}
           <div className="flex justify-between items-center px-6 py-3 print:hidden" style={{ borderBottom: "1px solid #E5EAF0", backgroundColor: "#F7F9FC" }}>
             <button onClick={() => setPreview(false)} style={{ fontSize: 13, color: "#6B7280", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>
               ← Düzenle
             </button>
             <div className="flex gap-3">
-              <button onClick={handlePrint} style={{ padding: "8px 20px", borderRadius: 8, backgroundColor: "#1F3A5F", color: "#fff", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
-                🖨️ Yazdır / PDF
+              <button onClick={handlePrint} style={{ padding: "8px 22px", borderRadius: 8, backgroundColor: "#C8102E", color: "#fff", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+                🖨️ PDF İndir / Yazdır
               </button>
               <button onClick={onClose} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #E5EAF0", backgroundColor: "#fff", cursor: "pointer", fontSize: 13, color: "#6B7280" }}>
                 Kapat
@@ -72,96 +79,142 @@ function TeklifModal({ lead, onClose }: { lead: LeadForQuote; onClose: () => voi
           </div>
 
           {/* Teklif İçeriği */}
-          <div id="teklif-print" style={{ padding: "40px 48px", fontFamily: "Arial, sans-serif" }}>
-            {/* Header */}
-            <div className="flex justify-between items-start" style={{ marginBottom: 32 }}>
+          <div id="teklif-print" style={{ fontFamily: "'Segoe UI', Arial, sans-serif", color: "#1A1F2E" }}>
+
+            {/* Üst şerit — lacivert */}
+            <div style={{ backgroundColor: "#1F3A5F", padding: "28px 40px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: "#C8102E", letterSpacing: -0.5 }}>KOPİSER</div>
-                <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>Fotokopi Makinesi Kiralama & Teknik Servis</div>
-                <div style={{ fontSize: 11, color: "#6B7280" }}>İzmir & İstanbul · 2010'dan beri</div>
-                <div style={{ fontSize: 11, color: "#6B7280" }}>www.kopiser.com.tr</div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/logo.png" alt="Kopiser" style={{ height: 52, marginBottom: 6, filter: "brightness(0) invert(1)" }} onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", letterSpacing: 0.3 }}>Fotokopi Makinesi Kiralama & Teknik Servis</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.7)" }}>İzmir & İstanbul · 2010&apos;dan beri hizmetinizdeyiz</div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#1A1F2E" }}>FİYAT TEKLİFİ</div>
-                <div style={{ fontSize: 12, color: "#6B7280", marginTop: 4 }}>Teklif No: <strong>{quoteNo}</strong></div>
-                <div style={{ fontSize: 12, color: "#6B7280" }}>Tarih: {today}</div>
-                <div style={{ fontSize: 12, color: "#6B7280" }}>Geçerlilik: {q.valid_days} gün</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>Fiyat Teklifi</div>
+                <div style={{ backgroundColor: "rgba(255,255,255,0.12)", borderRadius: 8, padding: "10px 16px", border: "1px solid rgba(255,255,255,0.2)" }}>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.8)", marginBottom: 3 }}>No: <strong style={{ color: "#fff" }}>{quoteNo}</strong></div>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.8)", marginBottom: 3 }}>Tarih: <strong style={{ color: "#fff" }}>{today}</strong></div>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.8)" }}>Geçerli: <strong style={{ color: "#FFD700" }}>{q.valid_days} gün</strong></div>
+                </div>
               </div>
             </div>
 
-            {/* Müşteri Bilgileri */}
-            <div style={{ backgroundColor: "#F7F9FC", borderRadius: 8, padding: "16px 20px", marginBottom: 24, border: "1px solid #E5EAF0" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>MÜŞTERİ BİLGİLERİ</div>
-              <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "6px 24px", display: "grid" }}>
-                <div style={{ fontSize: 13 }}><span style={{ color: "#6B7280" }}>Firma: </span><strong>{lead.company || "—"}</strong></div>
-                <div style={{ fontSize: 13 }}><span style={{ color: "#6B7280" }}>Yetkili: </span><strong>{lead.contact_name || "—"}</strong></div>
-                <div style={{ fontSize: 13 }}><span style={{ color: "#6B7280" }}>Telefon: </span><strong>{lead.phone || "—"}</strong></div>
-                <div style={{ fontSize: 13 }}><span style={{ color: "#6B7280" }}>E-posta: </span><strong>{lead.email || "—"}</strong></div>
-                <div style={{ fontSize: 13 }}><span style={{ color: "#6B7280" }}>Şehir: </span><strong>{lead.city || "—"}</strong></div>
-              </div>
-            </div>
+            {/* Kırmızı şerit */}
+            <div style={{ height: 4, backgroundColor: "#C8102E" }} />
 
-            {/* Teklif Detayları */}
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>TEKLİF DETAYLARI</div>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ backgroundColor: "#1F3A5F", color: "#fff" }}>
-                    {["Ürün/Hizmet", "Açıklama", "Birim", "Tutar"].map(h => (
-                      <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 12, fontWeight: 700 }}>{h}</th>
+            <div style={{ padding: "28px 40px" }}>
+              {/* Müşteri + Makine yan yana */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
+                {/* Müşteri Bilgileri */}
+                <div style={{ backgroundColor: "#F7F9FC", borderRadius: 10, padding: "18px 20px", border: "1px solid #E5EAF0" }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: "#C8102E", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>📋 Müşteri Bilgileri</div>
+                  {[
+                    { label: "Firma", value: lead.company },
+                    { label: "Yetkili", value: lead.contact_name },
+                    { label: "Telefon", value: lead.phone },
+                    { label: "E-posta", value: lead.email },
+                    { label: "Şehir", value: lead.city },
+                  ].map(row => (
+                    <div key={row.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6, paddingBottom: 6, borderBottom: "1px dashed #E5EAF0" }}>
+                      <span style={{ color: "#6B7280", minWidth: 60 }}>{row.label}</span>
+                      <strong style={{ color: "#1A1F2E", textAlign: "right" }}>{row.value || "—"}</strong>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Makine Bilgisi */}
+                <div style={{ borderRadius: 10, overflow: "hidden", border: "1px solid #E5EAF0", display: "flex", flexDirection: "column" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="https://images.pexels.com/photos/4386374/pexels-photo-4386374.jpeg?auto=compress&cs=tinysrgb&w=500&h=200&fit=crop"
+                    alt="Fotokopi Makinesi"
+                    style={{ width: "100%", height: 130, objectFit: "cover" }}
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                  <div style={{ backgroundColor: "#1F3A5F", padding: "12px 16px", flex: 1 }}>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Teklif Edilen Model</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{q.machine_model || "—"}</div>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>Sözleşme: {q.contract_months} ay</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fiyat Tablosu */}
+              <div style={{ marginBottom: 22 }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: "#6B7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>💰 Fiyatlandırma</div>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, borderRadius: 8, overflow: "hidden" }}>
+                  <thead>
+                    <tr style={{ backgroundColor: "#1F3A5F", color: "#fff" }}>
+                      {["Kalem", "Detay", "Birim", "Tutar"].map(h => (
+                        <th key={h} style={{ padding: "11px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style={{ borderBottom: "1px solid #E5EAF0", backgroundColor: "#fff" }}>
+                      <td style={{ padding: "12px 14px", fontWeight: 600 }}>Makine Kiralama</td>
+                      <td style={{ padding: "12px 14px", color: "#6B7280" }}>{q.machine_model || "—"}</td>
+                      <td style={{ padding: "12px 14px", color: "#6B7280" }}>Aylık</td>
+                      <td style={{ padding: "12px 14px", fontWeight: 800, color: "#C8102E", fontSize: 15 }}>
+                        {q.monthly_rent ? `${Number(q.monthly_rent).toLocaleString("tr-TR")} ₺` : "—"}
+                      </td>
+                    </tr>
+                    <tr style={{ borderBottom: "1px solid #E5EAF0", backgroundColor: "#F7F9FC" }}>
+                      <td style={{ padding: "12px 14px", fontWeight: 600 }}>Kopya Ücreti</td>
+                      <td style={{ padding: "12px 14px", color: "#6B7280" }}>Min. {q.min_copies || "—"} kopya/ay</td>
+                      <td style={{ padding: "12px 14px", color: "#6B7280" }}>Kopya başı</td>
+                      <td style={{ padding: "12px 14px", fontWeight: 700, color: "#1F3A5F" }}>
+                        {q.copy_price ? `${q.copy_price} ${q.copy_currency === "EUR" ? "€" : "₺"}` : "—"}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Dahil Hizmetler */}
+              {includedServices.length > 0 && (
+                <div style={{ marginBottom: 22 }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: "#6B7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>✅ Fiyata Dahil Hizmetler</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {includedServices.map(item => (
+                      <span key={item.key} style={{ padding: "6px 14px", borderRadius: 20, backgroundColor: "#D1FAE5", color: "#065F46", fontSize: 12, fontWeight: 700, border: "1px solid #A7F3D0" }}>
+                        ✓ {item.label}
+                      </span>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr style={{ borderBottom: "1px solid #E5EAF0" }}>
-                    <td style={{ padding: "12px 14px", fontWeight: 600 }}>Fotokopi Makinesi Kiralama</td>
-                    <td style={{ padding: "12px 14px", color: "#6B7280" }}>{q.machine_model || "—"}</td>
-                    <td style={{ padding: "12px 14px", color: "#6B7280" }}>Aylık</td>
-                    <td style={{ padding: "12px 14px", fontWeight: 700, color: "#1F3A5F" }}>
-                      {q.monthly_rent ? `${q.monthly_rent} TL` : "—"}
-                    </td>
-                  </tr>
-                  <tr style={{ borderBottom: "1px solid #E5EAF0", backgroundColor: "#FAFBFC" }}>
-                    <td style={{ padding: "12px 14px", fontWeight: 600 }}>Kopya Ücreti</td>
-                    <td style={{ padding: "12px 14px", color: "#6B7280" }}>Min. {q.min_copies || "—"} kopya/ay garantili</td>
-                    <td style={{ padding: "12px 14px", color: "#6B7280" }}>Kopya başı</td>
-                    <td style={{ padding: "12px 14px", fontWeight: 700, color: "#1F3A5F" }}>
-                      {q.copy_price ? `${q.copy_price} ${q.copy_currency}` : "—"}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                  </div>
+                </div>
+              )}
 
-            {/* Dahil Hizmetler */}
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>FİYATA DAHİL HİZMETLER</div>
-              <div className="flex flex-wrap gap-2" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {[
-                  { key: "includes_service", label: "✓ Teknik Servis" },
-                  { key: "includes_toner", label: "✓ Toner/Kartuş" },
-                  { key: "includes_parts", label: "✓ Yedek Parça" },
-                  { key: "includes_drum", label: "✓ Drum Ünitesi" },
-                ].filter(item => q[item.key as keyof QuoteData]).map(item => (
-                  <span key={item.key} style={{ padding: "4px 12px", borderRadius: 20, backgroundColor: "#D1FAE5", color: "#065F46", fontSize: 12, fontWeight: 600 }}>
-                    {item.label}
-                  </span>
-                ))}
+              {/* Extra not */}
+              {q.extra_notes && (
+                <div style={{ backgroundColor: "#FFFBEB", borderRadius: 8, padding: "12px 16px", marginBottom: 22, border: "1px solid #FDE68A" }}>
+                  <span style={{ fontSize: 12, color: "#92400E" }}><strong>📌 Not:</strong> {q.extra_notes}</span>
+                </div>
+              )}
+
+              {/* İmza alanı */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 24, marginTop: 8 }}>
+                <div style={{ borderTop: "2px solid #1F3A5F", paddingTop: 8, textAlign: "center" }}>
+                  <div style={{ fontSize: 11, color: "#6B7280" }}>Kopiser Yetkilisi İmza</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#1A1F2E", marginTop: 4 }}>Kopiser Fotokopi Kiralama</div>
+                </div>
+                <div style={{ borderTop: "2px solid #E5EAF0", paddingTop: 8, textAlign: "center" }}>
+                  <div style={{ fontSize: 11, color: "#6B7280" }}>Müşteri / Yetkili İmza - Kaşe</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#1A1F2E", marginTop: 4 }}>{lead.company || "—"}</div>
+                </div>
               </div>
-            </div>
 
-            {/* Sözleşme */}
-            <div style={{ backgroundColor: "#EFF6FF", borderRadius: 8, padding: "14px 20px", marginBottom: 24, border: "1px solid #BFDBFE" }}>
-              <div style={{ fontSize: 13 }}>
-                <strong>Sözleşme Süresi:</strong> {q.contract_months} ay
-                {q.extra_notes && <> &nbsp;|&nbsp; <strong>Not:</strong> {q.extra_notes}</>}
+              {/* Footer */}
+              <div style={{ borderTop: "1px solid #E5EAF0", paddingTop: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ fontSize: 10, color: "#9CA3AF", lineHeight: 1.8 }}>
+                  <div>Bu teklif <strong>{q.valid_days} gün</strong> geçerlidir. Fiyatlara KDV dahil değildir.</div>
+                  <div>Teklif kabul tarihinden itibaren sözleşme imzalanarak geçerlilik kazanır.</div>
+                </div>
+                <div style={{ textAlign: "right", fontSize: 10, color: "#9CA3AF", lineHeight: 1.8 }}>
+                  <div><strong style={{ color: "#1F3A5F" }}>Kopiser</strong> · www.kopiser.com.tr</div>
+                  <div>info@kopiser.com.tr · İzmir & İstanbul</div>
+                </div>
               </div>
-            </div>
-
-            {/* Notlar */}
-            <div style={{ fontSize: 11, color: "#9CA3AF", borderTop: "1px solid #E5EAF0", paddingTop: 16, lineHeight: 1.6 }}>
-              Bu teklif {q.valid_days} gün geçerlidir. Fiyatlara KDV dahil değildir. Detaylı bilgi için lütfen iletişime geçiniz.
-              &nbsp; | &nbsp; Kopiser — Tel: 0850 xxx xx xx &nbsp; | &nbsp; info@kopiser.com.tr
             </div>
           </div>
         </div>
