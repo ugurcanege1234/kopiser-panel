@@ -53,10 +53,12 @@ function TeklifModal({ lead, onClose }: { lead: LeadForQuote; onClose: () => voi
     if (!el) return;
     const win = window.open("", "_blank", "width=900,height=1200");
     if (!win) return;
+    const base = window.location.origin;
     win.document.write(`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8"/>
+  <base href="${base}"/>
   <title>Teklif</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -128,10 +130,9 @@ function TeklifModal({ lead, onClose }: { lead: LeadForQuote; onClose: () => voi
                   <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src="/logo.png"
-                      alt="Kopiser"
-                      style={{ height: 52, objectFit: "contain" }}
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      src={`${typeof window !== "undefined" ? window.location.origin : ""}/logo.png`}
+                      alt="Kopiser Büro Makineleri"
+                      style={{ height: 60, width: "auto", objectFit: "contain", display: "block" }}
                     />
                     <div>
                       <div style={{ fontSize: 17, fontWeight: 800, color: "#1F3A5F", letterSpacing: -0.3 }}>
@@ -278,8 +279,8 @@ function TeklifModal({ lead, onClose }: { lead: LeadForQuote; onClose: () => voi
                 {/* İmza */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, marginBottom: 18, marginTop: 28 }}>
                   {[
-                    { title: "Kopiser Yetkilisi", sub: "Kopiser Büro Makineleri" },
-                    { title: "Müşteri / Yetkili", sub: lead.company || "—" },
+                    { title: "Yetkili İmzası", sub: "Kopiser Büro Makineleri" },
+                    { title: "Müşteri / Yetkili İmzası", sub: lead.company || "—" },
                   ].map(s => (
                     <div key={s.title}>
                       <div style={{ borderTop: "1px solid #CBD5E1", paddingTop: 36, textAlign: "center" }}>

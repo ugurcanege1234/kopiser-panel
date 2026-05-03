@@ -89,7 +89,7 @@ function ContentDetailModal({
                 onClick={() => onGenerateImage(item)}
                 disabled={generatingImage}
                 style={{ padding: "8px 20px", borderRadius: 8, backgroundColor: "#7C3AED", color: "#fff", border: "none", cursor: generatingImage ? "wait" : "pointer", fontSize: 12, fontWeight: 600, opacity: generatingImage ? 0.6 : 1 }}>
-                {generatingImage ? "⏳ Üretiliyor..." : "🎨 Gemini ile Görsel Üret"}
+                {generatingImage ? "⏳ Üretiliyor..." : "🎨 Higgsfield ile Görsel Üret"}
               </button>
             </div>
           )}
@@ -99,7 +99,7 @@ function ContentDetailModal({
                 onClick={() => onGenerateImage(item)}
                 disabled={generatingImage}
                 style={{ width: "100%", padding: "7px", borderRadius: 8, backgroundColor: "#7C3AED", color: "#fff", border: "none", cursor: generatingImage ? "wait" : "pointer", fontSize: 12, fontWeight: 600, opacity: generatingImage ? 0.6 : 1 }}>
-                {generatingImage ? "⏳ Yenileniyor..." : "🎨 Görseli Yenile"}
+                {generatingImage ? "⏳ Yenileniyor..." : "🎨 Higgsfield ile Yenile"}
               </button>
             </div>
           )}
@@ -373,8 +373,32 @@ export default function Icerik() {
                     </div>
                   )}
                 </div>
-                <div style={{ padding: "8px 16px 12px", fontSize: 11, color: "#9CA3AF" }}>
-                  {item.scheduled_at ? new Date(item.scheduled_at).toLocaleDateString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Tarih yok"}
+                {/* Alt: tarih + hızlı butonlar */}
+                <div className="flex justify-between items-center"
+                  style={{ padding: "8px 12px 10px", borderTop: "1px solid #F1F5F9" }}
+                  onClick={e => e.stopPropagation()}>
+                  <span style={{ fontSize: 11, color: "#9CA3AF" }}>
+                    {item.scheduled_at ? new Date(item.scheduled_at).toLocaleDateString("tr-TR", { day: "numeric", month: "short" }) : "Tarih yok"}
+                  </span>
+                  <div className="flex gap-1">
+                    {item.status !== "Yayında" && (
+                      <button
+                        onClick={() => handleUpdate(item.id, { status: "Yayında" })}
+                        title="Yayınlandı olarak işaretle"
+                        style={{ padding: "4px 8px", borderRadius: 6, fontSize: 11, fontWeight: 600, border: "1px solid #BBF7D0", backgroundColor: "#ECFDF5", color: "#059669", cursor: "pointer" }}>
+                        ✓ Yayınlandı
+                      </button>
+                    )}
+                    {item.status === "Yayında" && (
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "#059669" }}>✓ Yayında</span>
+                    )}
+                    <button
+                      onClick={() => { if (confirm("Silinsin mi?")) handleDelete(item.id); }}
+                      title="Sil"
+                      style={{ padding: "4px 7px", borderRadius: 6, fontSize: 13, border: "1px solid #FEE2E2", backgroundColor: "#FEF2F2", color: "#EF4444", cursor: "pointer" }}>
+                      🗑️
+                    </button>
+                  </div>
                 </div>
               </div>
             );
