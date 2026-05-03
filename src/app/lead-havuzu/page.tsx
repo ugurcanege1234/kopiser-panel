@@ -90,83 +90,75 @@ function TeklifModal({ lead, onClose }: { lead: LeadForQuote; onClose: () => voi
             overflow: "hidden",
           }}>
 
-            {/* Sol dekoratif çubuk */}
-            <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 6, background: "linear-gradient(to bottom, #C8102E, #1F3A5F)" }} />
+            {/* Sol lacivert dekoratif çubuk */}
+            <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 5, backgroundColor: "#1F3A5F" }} />
 
-            {/* İÇERİK — sol çubuğun sağından başlıyor */}
-            <div style={{ marginLeft: 6 }}>
+            <div style={{ marginLeft: 5 }}>
 
-              {/* HEADER */}
-              <div style={{ backgroundColor: "#1F3A5F", padding: "24px 36px 20px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              {/* HEADER — beyaz arka plan, logo doğal görünür */}
+              <div style={{ backgroundColor: "#fff", padding: "22px 36px 18px", borderBottom: "2px solid #1F3A5F" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   {/* Logo + Şirket */}
-                  <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src="/logo.png"
                       alt="Kopiser"
-                      style={{ height: 48, marginBottom: 8, filter: "brightness(0) invert(1)" }}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                        const txt = document.createElement("div");
-                        txt.textContent = "KOPİSER";
-                        txt.style.cssText = "font-size:26px;font-weight:900;color:#fff;letter-spacing:2px;margin-bottom:8px";
-                        (e.target as HTMLImageElement).parentNode?.insertBefore(txt, e.target as HTMLImageElement);
-                      }}
+                      style={{ height: 52, objectFit: "contain" }}
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                     />
-                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", letterSpacing: 0.5 }}>
-                      Fotokopi Makinesi Kiralama &amp; Teknik Servis
-                    </div>
-                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>
-                      İzmir &amp; İstanbul · 2010&apos;dan beri hizmetinizdeyiz
+                    <div>
+                      <div style={{ fontSize: 17, fontWeight: 800, color: "#1F3A5F", letterSpacing: -0.3 }}>
+                        KOPİSER BÜRO MAKİNELERİ
+                      </div>
+                      <div style={{ fontSize: 9.5, color: "#64748B", marginTop: 2, letterSpacing: 0.3 }}>
+                        Büro Makineleri Kiralama &amp; Teknik Servis · İzmir &amp; İstanbul
+                      </div>
                     </div>
                   </div>
 
                   {/* Teklif Kimliği */}
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "#C8102E", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 6 }}>
+                    <div style={{ fontSize: 8, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>
                       Fiyat Teklifi
                     </div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: -0.5, marginBottom: 10 }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: "#1F3A5F", letterSpacing: -0.5, marginBottom: 6 }}>
                       {quoteNo}
                     </div>
-                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", lineHeight: 1.8 }}>
-                      <div>Tarih: <strong style={{ color: "#fff" }}>{today}</strong></div>
-                      <div>Geçerlilik: <strong style={{ color: "#FFD700" }}>{q.valid_days} gün</strong></div>
+                    <div style={{ fontSize: 9.5, color: "#64748B", lineHeight: 1.8 }}>
+                      <div>Tarih: <strong style={{ color: "#1A1F2E" }}>{today}</strong></div>
+                      <div>Geçerlilik: <strong style={{ color: "#1F3A5F" }}>{q.valid_days} gün</strong></div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Kırmızı ince şerit */}
-              <div style={{ height: 3, backgroundColor: "#C8102E" }} />
-
-              {/* Kurumsal info bar */}
-              <div style={{ backgroundColor: "#F0F4F8", borderBottom: "1px solid #E2E8F0", padding: "10px 36px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              {/* Kurumsal bilgi şeridi — lacivert arka plan */}
+              <div style={{ backgroundColor: "#1F3A5F", padding: "9px 36px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 {[
                   { label: "Kuruluş", value: "2010" },
                   { label: "Aktif Müşteri", value: "250+" },
                   { label: "Hizmet Bölgesi", value: "İzmir & İstanbul" },
-                  { label: "Marka", value: "Bağımsız · Çoklu" },
+                  { label: "Marka Bağımsız", value: "Kyocera · Konica · Xerox" },
                   { label: "Web", value: "kopiser.com.tr" },
                 ].map(item => (
                   <div key={item.label} style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: "#1F3A5F" }}>{item.value}</div>
-                    <div style={{ fontSize: 9, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.5 }}>{item.label}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>{item.value}</div>
+                    <div style={{ fontSize: 8, color: "rgba(255,255,255,0.55)", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 1 }}>{item.label}</div>
                   </div>
                 ))}
               </div>
 
-              <div style={{ padding: "24px 36px" }}>
+              <div style={{ padding: "22px 36px" }}>
 
                 {/* Müşteri + Teklif Özet yan yana */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 18 }}>
                   {/* Müşteri Bilgileri */}
-                  <div style={{ border: "1.5px solid #E2E8F0", borderRadius: 8, overflow: "hidden" }}>
-                    <div style={{ backgroundColor: "#1F3A5F", padding: "8px 14px" }}>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.8)", textTransform: "uppercase", letterSpacing: 1 }}>Müşteri Bilgileri</div>
+                  <div style={{ border: "1px solid #CBD5E1", borderRadius: 6, overflow: "hidden" }}>
+                    <div style={{ backgroundColor: "#F1F5F9", borderBottom: "1px solid #CBD5E1", padding: "7px 14px" }}>
+                      <div style={{ fontSize: 8.5, fontWeight: 700, color: "#1F3A5F", textTransform: "uppercase", letterSpacing: 1 }}>Müşteri Bilgileri</div>
                     </div>
-                    <div style={{ padding: "12px 14px", backgroundColor: "#fff" }}>
+                    <div style={{ padding: "10px 14px", backgroundColor: "#fff" }}>
                       {[
                         { label: "Firma", value: lead.company },
                         { label: "Yetkili", value: lead.contact_name },
@@ -174,8 +166,8 @@ function TeklifModal({ lead, onClose }: { lead: LeadForQuote; onClose: () => voi
                         { label: "E-posta", value: lead.email },
                         { label: "Şehir", value: lead.city },
                       ].map((row, idx, arr) => (
-                        <div key={row.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, padding: "5px 0", borderBottom: idx < arr.length - 1 ? "1px solid #F1F5F9" : "none" }}>
-                          <span style={{ color: "#9CA3AF", width: 56 }}>{row.label}</span>
+                        <div key={row.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, padding: "4px 0", borderBottom: idx < arr.length - 1 ? "1px solid #F1F5F9" : "none" }}>
+                          <span style={{ color: "#94A3B8", width: 54, flexShrink: 0 }}>{row.label}</span>
                           <strong style={{ color: "#1A1F2E", textAlign: "right", maxWidth: 160, wordBreak: "break-word" }}>{row.value || "—"}</strong>
                         </div>
                       ))}
@@ -183,11 +175,11 @@ function TeklifModal({ lead, onClose }: { lead: LeadForQuote; onClose: () => voi
                   </div>
 
                   {/* Teklif Özet Kutusu */}
-                  <div style={{ border: "1.5px solid #C8102E", borderRadius: 8, overflow: "hidden" }}>
-                    <div style={{ backgroundColor: "#C8102E", padding: "8px 14px" }}>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.9)", textTransform: "uppercase", letterSpacing: 1 }}>Teklif Özeti</div>
+                  <div style={{ border: "1px solid #CBD5E1", borderRadius: 6, overflow: "hidden" }}>
+                    <div style={{ backgroundColor: "#1F3A5F", padding: "7px 14px" }}>
+                      <div style={{ fontSize: 8.5, fontWeight: 700, color: "rgba(255,255,255,0.85)", textTransform: "uppercase", letterSpacing: 1 }}>Teklif Özeti</div>
                     </div>
-                    <div style={{ padding: "12px 14px", backgroundColor: "#fff" }}>
+                    <div style={{ padding: "10px 14px", backgroundColor: "#fff" }}>
                       {[
                         { label: "Model", value: q.machine_model || "—" },
                         { label: "Aylık Kira", value: q.monthly_rent ? `${Number(q.monthly_rent).toLocaleString("tr-TR")} ₺` : "—" },
@@ -195,9 +187,9 @@ function TeklifModal({ lead, onClose }: { lead: LeadForQuote; onClose: () => voi
                         { label: "Min. Kopya", value: q.min_copies ? `${Number(q.min_copies).toLocaleString("tr-TR")} / ay` : "—" },
                         { label: "Süre", value: `${q.contract_months} ay` },
                       ].map((row, idx, arr) => (
-                        <div key={row.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, padding: "5px 0", borderBottom: idx < arr.length - 1 ? "1px solid #F1F5F9" : "none" }}>
-                          <span style={{ color: "#9CA3AF", width: 70 }}>{row.label}</span>
-                          <strong style={{ color: "#1A1F2E", textAlign: "right" }}>{row.value}</strong>
+                        <div key={row.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, padding: "4px 0", borderBottom: idx < arr.length - 1 ? "1px solid #F1F5F9" : "none" }}>
+                          <span style={{ color: "#94A3B8", width: 70, flexShrink: 0 }}>{row.label}</span>
+                          <strong style={{ color: "#1F3A5F", textAlign: "right" }}>{row.value}</strong>
                         </div>
                       ))}
                     </div>
@@ -205,29 +197,29 @@ function TeklifModal({ lead, onClose }: { lead: LeadForQuote; onClose: () => voi
                 </div>
 
                 {/* Fiyat Detay Tablosu */}
-                <div style={{ marginBottom: 18 }}>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Fiyatlandırma Detayı</div>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 8.5, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: 1, marginBottom: 7 }}>Fiyatlandırma Detayı</div>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10.5 }}>
                     <thead>
-                      <tr style={{ backgroundColor: "#1F3A5F", color: "#fff" }}>
+                      <tr style={{ backgroundColor: "#F1F5F9", borderBottom: "2px solid #1F3A5F" }}>
                         {["Hizmet Kalemi", "Açıklama", "Birim", "Tutar"].map(h => (
-                          <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontSize: 9, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>{h}</th>
+                          <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: 8.5, fontWeight: 700, color: "#1F3A5F", letterSpacing: 0.5, textTransform: "uppercase" }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      <tr style={{ borderBottom: "1px solid #E5EAF0" }}>
-                        <td style={{ padding: "10px 12px", fontWeight: 600 }}>Fotokopi Makinesi Kiralama</td>
-                        <td style={{ padding: "10px 12px", color: "#6B7280" }}>{q.machine_model || "—"} · Tam bakımlı teslimat</td>
-                        <td style={{ padding: "10px 12px", color: "#6B7280" }}>Aylık</td>
-                        <td style={{ padding: "10px 12px", fontWeight: 800, color: "#C8102E", fontSize: 14 }}>
+                      <tr style={{ borderBottom: "1px solid #E2E8F0" }}>
+                        <td style={{ padding: "10px 12px", fontWeight: 600, color: "#1A1F2E" }}>Büro Makinesi Kiralama</td>
+                        <td style={{ padding: "10px 12px", color: "#64748B" }}>{q.machine_model || "—"} · Tam bakımlı teslimat</td>
+                        <td style={{ padding: "10px 12px", color: "#64748B" }}>Aylık</td>
+                        <td style={{ padding: "10px 12px", fontWeight: 800, color: "#1F3A5F", fontSize: 13 }}>
                           {q.monthly_rent ? `${Number(q.monthly_rent).toLocaleString("tr-TR")} ₺` : "—"}
                         </td>
                       </tr>
-                      <tr style={{ borderBottom: "1px solid #E5EAF0", backgroundColor: "#F8FAFC" }}>
-                        <td style={{ padding: "10px 12px", fontWeight: 600 }}>Kopya / Baskı Ücreti</td>
-                        <td style={{ padding: "10px 12px", color: "#6B7280" }}>Min. {q.min_copies ? Number(q.min_copies).toLocaleString("tr-TR") : "—"} kopya/ay garantili</td>
-                        <td style={{ padding: "10px 12px", color: "#6B7280" }}>Kopya başı</td>
+                      <tr style={{ borderBottom: "1px solid #E2E8F0", backgroundColor: "#F8FAFC" }}>
+                        <td style={{ padding: "10px 12px", fontWeight: 600, color: "#1A1F2E" }}>Kopya / Baskı Ücreti</td>
+                        <td style={{ padding: "10px 12px", color: "#64748B" }}>Min. {q.min_copies ? Number(q.min_copies).toLocaleString("tr-TR") : "—"} kopya/ay garantili</td>
+                        <td style={{ padding: "10px 12px", color: "#64748B" }}>Kopya başı</td>
                         <td style={{ padding: "10px 12px", fontWeight: 700, color: "#1F3A5F" }}>
                           {q.copy_price ? `${q.copy_price} ${q.copy_currency === "EUR" ? "€" : "₺"}` : "—"}
                         </td>
@@ -238,11 +230,11 @@ function TeklifModal({ lead, onClose }: { lead: LeadForQuote; onClose: () => voi
 
                 {/* Dahil Hizmetler */}
                 {includedServices.length > 0 && (
-                  <div style={{ marginBottom: 18 }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Fiyata Dahil Hizmetler</div>
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 8.5, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: 1, marginBottom: 7 }}>Fiyata Dahil Hizmetler</div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       {includedServices.map(item => (
-                        <span key={item.key} style={{ padding: "5px 12px", borderRadius: 4, backgroundColor: "#EFF8F3", color: "#166534", fontSize: 10, fontWeight: 700, border: "1px solid #BBF7D0", letterSpacing: 0.3 }}>
+                        <span key={item.key} style={{ padding: "4px 11px", borderRadius: 4, backgroundColor: "#EFF6FF", color: "#1E40AF", fontSize: 9.5, fontWeight: 700, border: "1px solid #BFDBFE", letterSpacing: 0.3 }}>
                           ✓ {item.label}
                         </span>
                       ))}
@@ -252,36 +244,37 @@ function TeklifModal({ lead, onClose }: { lead: LeadForQuote; onClose: () => voi
 
                 {/* Not */}
                 {q.extra_notes && (
-                  <div style={{ backgroundColor: "#FFFBEB", borderRadius: 6, padding: "10px 14px", marginBottom: 18, border: "1px solid #FDE68A" }}>
-                    <span style={{ fontSize: 10, color: "#92400E" }}><strong>Not:</strong> {q.extra_notes}</span>
+                  <div style={{ backgroundColor: "#F8FAFC", borderRadius: 5, padding: "9px 14px", marginBottom: 16, borderLeft: "3px solid #1F3A5F" }}>
+                    <span style={{ fontSize: 9.5, color: "#1A1F2E" }}><strong>Not:</strong> {q.extra_notes}</span>
                   </div>
                 )}
 
                 {/* İmza */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, marginBottom: 20, marginTop: 24 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, marginBottom: 18, marginTop: 28 }}>
                   {[
-                    { title: "Kopiser Yetkilisi", sub: "Kopiser Fotokopi Kiralama Ltd." },
+                    { title: "Kopiser Yetkilisi", sub: "Kopiser Büro Makineleri" },
                     { title: "Müşteri / Yetkili", sub: lead.company || "—" },
                   ].map(s => (
                     <div key={s.title}>
-                      <div style={{ borderTop: "1.5px solid #CBD5E1", paddingTop: 40, textAlign: "center" }}>
-                        <div style={{ fontSize: 9, color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.5 }}>{s.title} · İmza &amp; Kaşe</div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#1A1F2E", marginTop: 4 }}>{s.sub}</div>
+                      <div style={{ borderTop: "1px solid #CBD5E1", paddingTop: 36, textAlign: "center" }}>
+                        <div style={{ fontSize: 8.5, color: "#94A3B8", textTransform: "uppercase", letterSpacing: 0.5 }}>{s.title} · İmza &amp; Kaşe</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#1F3A5F", marginTop: 4 }}>{s.sub}</div>
                       </div>
                     </div>
                   ))}
                 </div>
 
                 {/* Footer */}
-                <div style={{ borderTop: "1px solid #E5EAF0", paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ fontSize: 8.5, color: "#9CA3AF", lineHeight: 1.9 }}>
-                    <div>Bu teklif <strong>{q.valid_days} gün</strong> geçerlidir. Belirtilen fiyatlara KDV dahil değildir (+%20 KDV uygulanır).</div>
+                <div style={{ borderTop: "2px solid #1F3A5F", paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontSize: 8, color: "#94A3B8", lineHeight: 1.9 }}>
+                    <div>Bu teklif <strong style={{ color: "#1F3A5F" }}>{q.valid_days} gün</strong> geçerlidir. Belirtilen fiyatlara KDV dahil değildir (+%20 KDV uygulanır).</div>
                     <div>Teklif onayı sözleşme imzası ile geçerlilik kazanır. Mücbir sebep halleri saklıdır.</div>
                   </div>
-                  <div style={{ textAlign: "right", fontSize: 8.5, color: "#9CA3AF", lineHeight: 1.9 }}>
-                    <div><strong style={{ color: "#1F3A5F" }}>Kopiser</strong> · www.kopiser.com.tr</div>
-                    <div>info@kopiser.com.tr · 0850 xxx xx xx</div>
-                    <div>İzmir (Merkez) · İstanbul (Şube)</div>
+                  <div style={{ textAlign: "right", fontSize: 8, color: "#94A3B8", lineHeight: 1.9 }}>
+                    <div><strong style={{ color: "#1F3A5F" }}>Kopiser Büro Makineleri</strong> · kopiser.com.tr</div>
+                    <div>📞 0232 348 15 68 · 0507 573 32 93 · 0555 265 37 50</div>
+                    <div>✉️ info@kopiser.com.tr</div>
+                    <div>📍 Mansuroğlu Mh. 262 Sk. No:6/C Bayraklı, İzmir</div>
                   </div>
                 </div>
               </div>
