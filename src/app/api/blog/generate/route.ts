@@ -35,6 +35,58 @@ const TOPICS = [
   "Aylık sabit ücretli fotokopi kiralama modelinin faydaları",
 ];
 
+// Kullanıcıların Google'da aradığı arıza konuları — yüksek arama niyeti
+const ERROR_TOPICS = [
+  "Kyocera fotokopi E7 hatası nedir ve nasıl çözülür?",
+  "Kyocera fotokopi C serisi hata kodları (C0100–C7810) anlamları ve çözümleri",
+  "Kyocera 'Lütfen Servisi Arayınız' hatası: Nedenleri ve çözüm yolları",
+  "Kyocera A1 hata kodu: Atık toner tankı sorunu nasıl giderilir?",
+  "Fotokopi makinesi kağıt sıkışması sorunu: Nedenler ve kalıcı çözümler",
+  "Ricoh SC551 hata kodu: Fuser ünite arızası belirtileri ve çözümü",
+  "Konica Minolta fotokopi makinesi hata kodları rehberi",
+  "Fotokopi makinesi siyah çizgi ve nokta sorunu: Drum mu, toner mı?",
+  "Fotokopi toner bitmeden 'toner low' uyarısı veriyor: Çözüm yolları",
+  "Xerox fotokopi arıza kodları: En sık görülen hatalar ve çözümleri",
+  "Fotokopi makinesi açılmıyor: Güç sorununun olası nedenleri",
+  "Sabitleme ünitesi (fuser) arızası belirtileri ve ne zaman değiştirilmeli?",
+  "Fotokopi makinesi baskı kalitesi düştü: Soluk, bulanık çıktı sorunları",
+  "Kyocera ECOSYS serisi kağıt sıkışması: Adım adım çözüm rehberi",
+  "Fotokopi makinesi bakım ihmalinin uzun vadeli maliyeti",
+];
+
+async function fetchTrendingErrorTopics(): Promise<string[]> {
+  const serperKey = process.env.SERPER_API_KEY;
+  if (!serperKey) return [];
+  try {
+    const queries = ["fotokopi makinesi arıza çözümü", "kyocera xerox konica fotokopi hata"];
+    const results: string[] = [];
+    for (const q of queries) {
+      const res = await fetch("https://google.serper.dev/search", {
+        method: "POST",
+        headers: { "X-API-KEY": serperKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ q, gl: "tr", hl: "tr", num: 5 }),
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      // peopleAlsoAsk soruları varsa al
+      if (data.peopleAlsoAsk) {
+        for (const item of data.peopleAlsoAsk.slice(0, 3)) {
+          if (item.question) results.push(item.question);
+        }
+      }
+      // relatedSearches varsa al
+      if (data.relatedSearches) {
+        for (const item of data.relatedSearches.slice(0, 2)) {
+          if (item.query) results.push(item.query + " — çözüm rehberi");
+        }
+      }
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}
+
 const SOCIAL_PLATFORMS = [
   {
     platform: "Instagram",
@@ -162,7 +214,11 @@ export async function POST(req: NextRequest) {
 
   const anthropic = new Anthropic({ apiKey });
   const today = new Date();
-  const dayIndex = today.getDate() % TOPICS.length;
+  const dayIndex = today.getDate();
+
+  // Serper'dan trending arıza sorularını çek (arka planda, hata olursa boş döner)
+  const trendingErrors = await fetchTrendingErrorTopics();
+  const allErrorTopics = [...trendingErrors, ...ERROR_TOPICS];
 
   const { data: weakKeywords } = await supabase
     .from("seo_keywords")
@@ -187,9 +243,16 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < sitesToProcess.length; i++) {
       const site = sitesToProcess[i];
       const siteWeakKw = allWeakKeywords.find(k => k.site === site.site);
+
+      // Gün çift → arıza konusu, tek → genel konu (her gün farklı içerik)
+      const useErrorTopic = (dayIndex + i) % 2 === 0;
+      const defaultTopic = useErrorTopic
+        ? allErrorTopics[(dayIndex + i) % allErrorTopics.length]
+        : TOPICS[(dayIndex + i) % TOPICS.length];
+
       const topic = customTopic || (siteWeakKw
         ? `"${siteWeakKw.keyword}" için kapsamlı rehber`
-        : TOPICS[(dayIndex + i) % TOPICS.length]);
+        : defaultTopic);
       const todayStr = today.toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
 
       try {
@@ -201,13 +264,18 @@ Hedef anahtar kelimeler: ${site.keywords.join(", ")}
 
 Bugün için (${todayStr}) şu konuda bir blog yazısı yaz: "${topic}"
 
-Kurallar:
+${useErrorTopic && !siteWeakKw ? `Bu bir arıza/teknik sorun konusudur. Özel kurallar:
+- Okuyucu sorunu yaşıyor, çözüm arıyor — önce sorunu anlamasına yardım et
+- Kullanıcının kendin yapabileceği basit kontrolleri anlat
+- Ardından profesyonel teknik servis gerektiren durumları belirt
+- Kopiser'in bakım dahil kiralama modelini doğal biçimde öner: "Bu tür arızalar kiralama modelinde bakım kapsamında karşılanır"
+- CTA: "Arıza tekrar ediyorsa bakım dahil kiralama modeli çözüm olabilir — Kopiser ile iletişime geçin"
+` : ""}Genel kurallar:
 - Dil: Türkçe
-- Uzunluk: 450-600 kelime
+- Uzunluk: 500-650 kelime
 - Yapı: Başlık + Giriş + 3-4 alt başlık + Sonuç
 - Kopiser'i doğal şekilde 2-3 kez bahset
 - Hedef anahtar kelimeleri doğal şekilde yerleştir
-- "Bize ulaşın" tarzı CTA ile bitir
 - Emoji veya markdown kullanma
 
 BAŞLIK: [başlık]
@@ -229,7 +297,7 @@ BAŞLIK: [başlık]
           status: "Yayına Hazır",
           scheduled_at: scheduledAt.toISOString(),
           content_text: content,
-          notes: `Site: ${site.site} | ${siteWeakKw ? `SEO hedef: "${siteWeakKw.keyword}"` : "Genel konu"} | AI`,
+          notes: `Site: ${site.site} | ${siteWeakKw ? `SEO hedef: "${siteWeakKw.keyword}"` : useErrorTopic ? "Arıza/teknik konu" : "Genel konu"} | AI`,
           assigned_to: "AI",
           image_url: null,
         }]);
