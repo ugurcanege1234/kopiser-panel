@@ -24,12 +24,31 @@ const emptyForm = {
   score: 50, machine_type: "", notes: "",
 };
 
-const emptyQuote = {
-  machine_model: "",
-  monthly_rent: "",
-  copy_price: "",
-  copy_currency: "TL",
-  min_copies: "",
+type QuoteItem = {
+  machine_model: string;
+  monthly_rent: string;
+  copy_price: string;
+  copy_currency: "TL" | "EUR";
+  min_copies: string;
+};
+
+const emptyItem = (): QuoteItem => ({
+  machine_model: "", monthly_rent: "", copy_price: "", copy_currency: "TL", min_copies: "",
+});
+
+type QuoteData = {
+  items: QuoteItem[];
+  contract_months: string;
+  includes_toner: boolean;
+  includes_service: boolean;
+  includes_parts: boolean;
+  includes_drum: boolean;
+  valid_days: string;
+  extra_notes: string;
+};
+
+const emptyQuote = (): QuoteData => ({
+  items: [emptyItem()],
   contract_months: "12",
   includes_toner: true,
   includes_service: true,
@@ -37,13 +56,28 @@ const emptyQuote = {
   includes_drum: false,
   valid_days: "15",
   extra_notes: "",
-};
+});
 
-type QuoteData = typeof emptyQuote;
 type LeadForQuote = Pick<Lead, "company" | "contact_name" | "phone" | "email" | "city" | "machine_type">;
 
 function TeklifModal({ lead, onClose }: { lead: LeadForQuote; onClose: () => void }) {
-  const [q, setQ] = useState<QuoteData>({ ...emptyQuote, machine_model: lead.machine_type || "" });
+  const initial = emptyQuote();
+  if (lead.machine_type) initial.items[0].machine_model = lead.machine_type;
+  const [q, setQ] = useState<QuoteData>(initial);
+
+  const updateItem = (idx: number, field: keyof QuoteItem, value: string) => {
+    setQ(prev => {
+      const items = [...prev.items];
+      items[idx] = { ...items[idx], [field]: value };
+      return { ...prev, items };
+    });
+  };
+
+  const addItem = () => setQ(prev => ({ ...prev, items: [...prev.items, emptyItem()] }));
+
+  const removeItem = (idx: number) => setQ(prev => ({
+    ...prev, items: prev.items.filter((_, i) => i !== idx),
+  }));
   const [preview, setPreview] = useState(false);
   const today = new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
   const quoteNo = `KOP-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
@@ -207,18 +241,27 @@ function TeklifModal({ lead, onClose }: { lead: LeadForQuote; onClose: () => voi
                       <div style={{ fontSize: 8.5, fontWeight: 700, color: "rgba(255,255,255,0.85)", textTransform: "uppercase", letterSpacing: 1 }}>Teklif Özeti</div>
                     </div>
                     <div style={{ padding: "10px 14px", backgroundColor: "#fff" }}>
-                      {[
-                        { label: "Model", value: q.machine_model || "—" },
-                        { label: "Aylık Kira", value: q.monthly_rent ? `${Number(q.monthly_rent).toLocaleString("tr-TR")} ₺` : "—" },
-                        { label: "Kopya Ücreti", value: q.copy_price ? `${q.copy_price} ${q.copy_currency === "EUR" ? "€" : "₺"}/kopya` : "—" },
-                        { label: "Min. Kopya", value: q.min_copies ? `${Number(q.min_copies).toLocaleString("tr-TR")} / ay` : "—" },
-                        { label: "Süre", value: `${q.contract_months} ay` },
-                      ].map((row, idx, arr) => (
-                        <div key={row.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, padding: "4px 0", borderBottom: idx < arr.length - 1 ? "1px solid #F1F5F9" : "none" }}>
-                          <span style={{ color: "#94A3B8", width: 70, flexShrink: 0 }}>{row.label}</span>
-                          <strong style={{ color: "#1F3A5F", textAlign: "right" }}>{row.value}</strong>
+                      {q.items.map((item, idx) => (
+                        <div key={idx} style={{ marginBottom: idx < q.items.length - 1 ? 8 : 0, paddingBottom: idx < q.items.length - 1 ? 8 : 0, borderBottom: idx < q.items.length - 1 ? "1px solid #E2E8F0" : "none" }}>
+                          {q.items.length > 1 && (
+                            <div style={{ fontSize: 9, fontWeight: 700, color: "#1F3A5F", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>Makine {idx + 1}</div>
+                          )}
+                          {[
+                            { label: "Model", value: item.machine_model || "—" },
+                            { label: "Aylık Kira", value: item.monthly_rent ? `${Number(item.monthly_rent).toLocaleString("tr-TR")} ₺` : "—" },
+                            { label: "Kopya", value: item.copy_price ? `${item.copy_price} ${item.copy_currency === "EUR" ? "€" : "₺"}/adet` : "—" },
+                          ].map(row => (
+                            <div key={row.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 10, padding: "2px 0" }}>
+                              <span style={{ color: "#94A3B8", width: 60, flexShrink: 0 }}>{row.label}</span>
+                              <strong style={{ color: "#1F3A5F", textAlign: "right" }}>{row.value}</strong>
+                            </div>
+                          ))}
                         </div>
                       ))}
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, padding: "4px 0", borderTop: "1px solid #E2E8F0", marginTop: 4 }}>
+                        <span style={{ color: "#94A3B8", width: 70, flexShrink: 0 }}>Süre</span>
+                        <strong style={{ color: "#1F3A5F" }}>{q.contract_months} ay</strong>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -235,22 +278,36 @@ function TeklifModal({ lead, onClose }: { lead: LeadForQuote; onClose: () => voi
                       </tr>
                     </thead>
                     <tbody>
-                      <tr style={{ borderBottom: "1px solid #E2E8F0" }}>
-                        <td style={{ padding: "10px 12px", fontWeight: 600, color: "#1A1F2E" }}>Büro Makinesi Kiralama</td>
-                        <td style={{ padding: "10px 12px", color: "#64748B" }}>{q.machine_model || "—"} · Tam bakımlı teslimat</td>
-                        <td style={{ padding: "10px 12px", color: "#64748B" }}>Aylık</td>
-                        <td style={{ padding: "10px 12px", fontWeight: 800, color: "#1F3A5F", fontSize: 13 }}>
-                          {q.monthly_rent ? `${Number(q.monthly_rent).toLocaleString("tr-TR")} ₺` : "—"}
-                        </td>
-                      </tr>
-                      <tr style={{ borderBottom: "1px solid #E2E8F0", backgroundColor: "#F8FAFC" }}>
-                        <td style={{ padding: "10px 12px", fontWeight: 600, color: "#1A1F2E" }}>Kopya / Baskı Ücreti</td>
-                        <td style={{ padding: "10px 12px", color: "#64748B" }}>Min. {q.min_copies ? Number(q.min_copies).toLocaleString("tr-TR") : "—"} kopya/ay garantili</td>
-                        <td style={{ padding: "10px 12px", color: "#64748B" }}>Kopya başı</td>
-                        <td style={{ padding: "10px 12px", fontWeight: 700, color: "#1F3A5F" }}>
-                          {q.copy_price ? `${q.copy_price} ${q.copy_currency === "EUR" ? "€" : "₺"}` : "—"}
-                        </td>
-                      </tr>
+                      {q.items.flatMap((item, idx) => [
+                        <tr key={`rent-${idx}`} style={{ borderBottom: "1px solid #E2E8F0", backgroundColor: idx % 2 === 0 ? "#fff" : "#F8FAFC" }}>
+                          <td style={{ padding: "9px 12px", fontWeight: 600, color: "#1A1F2E" }}>
+                            {q.items.length > 1 ? `Makine ${idx + 1} – Kiralama` : "Büro Makinesi Kiralama"}
+                          </td>
+                          <td style={{ padding: "9px 12px", color: "#64748B" }}>{item.machine_model || "—"} · Tam bakımlı teslimat</td>
+                          <td style={{ padding: "9px 12px", color: "#64748B" }}>Aylık</td>
+                          <td style={{ padding: "9px 12px", fontWeight: 800, color: "#1F3A5F", fontSize: 13 }}>
+                            {item.monthly_rent ? `${Number(item.monthly_rent).toLocaleString("tr-TR")} ₺` : "—"}
+                          </td>
+                        </tr>,
+                        <tr key={`copy-${idx}`} style={{ borderBottom: "1px solid #E2E8F0", backgroundColor: idx % 2 === 0 ? "#F8FAFC" : "#fff" }}>
+                          <td style={{ padding: "9px 12px", fontWeight: 600, color: "#1A1F2E" }}>
+                            {q.items.length > 1 ? `Makine ${idx + 1} – Kopya` : "Kopya / Baskı Ücreti"}
+                          </td>
+                          <td style={{ padding: "9px 12px", color: "#64748B" }}>Min. {item.min_copies ? Number(item.min_copies).toLocaleString("tr-TR") : "—"} kopya/ay garantili</td>
+                          <td style={{ padding: "9px 12px", color: "#64748B" }}>Kopya başı</td>
+                          <td style={{ padding: "9px 12px", fontWeight: 700, color: "#1F3A5F" }}>
+                            {item.copy_price ? `${item.copy_price} ${item.copy_currency === "EUR" ? "€" : "₺"}` : "—"}
+                          </td>
+                        </tr>,
+                      ])}
+                      {q.items.length > 1 && q.items.reduce((sum, item) => sum + (Number(item.monthly_rent) || 0), 0) > 0 && (
+                        <tr style={{ backgroundColor: "#EFF6FF", borderTop: "2px solid #1F3A5F" }}>
+                          <td colSpan={3} style={{ padding: "10px 12px", fontWeight: 700, color: "#1F3A5F", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Toplam Aylık Kira</td>
+                          <td style={{ padding: "10px 12px", fontWeight: 800, color: "#1F3A5F", fontSize: 14 }}>
+                            {q.items.reduce((sum, item) => sum + (Number(item.monthly_rent) || 0), 0).toLocaleString("tr-TR")} ₺
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -324,21 +381,65 @@ function TeklifModal({ lead, onClose }: { lead: LeadForQuote; onClose: () => voi
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#9CA3AF", lineHeight: 1 }}>×</button>
         </div>
 
-        <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1fr" }}>
-          <div style={{ gridColumn: "1/-1" }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 6 }}>Makine Modeli</label>
-            <input value={q.machine_model} onChange={e => setQ({ ...q, machine_model: e.target.value })}
-              placeholder="Örn: Konica Minolta C258, Kyocera 3553ci"
-              style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #E5EAF0", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+        {/* Ürün Kalemleri */}
+        <div style={{ marginBottom: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#6B7280" }}>Ürün / Makine Kalemleri</label>
+            <button type="button" onClick={addItem}
+              style={{ fontSize: 11, fontWeight: 700, color: "#1F3A5F", background: "none", border: "1px solid #1F3A5F", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
+              + Ürün Ekle
+            </button>
           </div>
+          {q.items.map((item, idx) => (
+            <div key={idx} style={{ backgroundColor: "#F8FAFC", borderRadius: 8, border: "1px solid #E5EAF0", padding: "12px 14px", marginBottom: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#1F3A5F" }}>Ürün {idx + 1}</span>
+                {q.items.length > 1 && (
+                  <button type="button" onClick={() => removeItem(idx)}
+                    style={{ fontSize: 11, color: "#EF4444", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>
+                    Kaldır
+                  </button>
+                )}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div style={{ gridColumn: "1/-1" }}>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 4 }}>Makine Modeli</label>
+                  <input value={item.machine_model} onChange={e => updateItem(idx, "machine_model", e.target.value)}
+                    placeholder="Örn: Konica Minolta C258, Kyocera 3553ci"
+                    style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #E5EAF0", fontSize: 12, outline: "none", boxSizing: "border-box", backgroundColor: "#fff" }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 4 }}>Aylık Kira (TL)</label>
+                  <input value={item.monthly_rent} onChange={e => updateItem(idx, "monthly_rent", e.target.value)}
+                    placeholder="Örn: 2500"
+                    style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #E5EAF0", fontSize: 12, outline: "none", boxSizing: "border-box", backgroundColor: "#fff" }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 4 }}>Min. Kopya/Ay</label>
+                  <input value={item.min_copies} onChange={e => updateItem(idx, "min_copies", e.target.value)}
+                    placeholder="Örn: 5000"
+                    style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #E5EAF0", fontSize: 12, outline: "none", boxSizing: "border-box", backgroundColor: "#fff" }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 4 }}>Kopya Ücreti</label>
+                  <input value={item.copy_price} onChange={e => updateItem(idx, "copy_price", e.target.value)}
+                    placeholder="Örn: 0.009"
+                    style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #E5EAF0", fontSize: 12, outline: "none", boxSizing: "border-box", backgroundColor: "#fff" }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 4 }}>Para Birimi</label>
+                  <select value={item.copy_currency} onChange={e => updateItem(idx, "copy_currency", e.target.value)}
+                    style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #E5EAF0", fontSize: 12, outline: "none", backgroundColor: "#fff" }}>
+                    <option>TL</option>
+                    <option>EUR</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
 
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 6 }}>Aylık Kira (TL)</label>
-            <input value={q.monthly_rent} onChange={e => setQ({ ...q, monthly_rent: e.target.value })}
-              placeholder="Örn: 2500"
-              style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #E5EAF0", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
-          </div>
-
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 6 }}>Sözleşme Süresi (Ay)</label>
             <select value={q.contract_months} onChange={e => setQ({ ...q, contract_months: e.target.value })}
@@ -346,30 +447,6 @@ function TeklifModal({ lead, onClose }: { lead: LeadForQuote; onClose: () => voi
               {["6", "12", "24", "36"].map(m => <option key={m}>{m}</option>)}
             </select>
           </div>
-
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 6 }}>Kopya Ücreti</label>
-            <input value={q.copy_price} onChange={e => setQ({ ...q, copy_price: e.target.value })}
-              placeholder="Örn: 0.009"
-              style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #E5EAF0", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
-          </div>
-
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 6 }}>Para Birimi</label>
-            <select value={q.copy_currency} onChange={e => setQ({ ...q, copy_currency: e.target.value })}
-              style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #E5EAF0", fontSize: 13, outline: "none", backgroundColor: "#fff" }}>
-              <option>TL</option>
-              <option>EUR</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 6 }}>Min. Kopya Garantisi/Ay</label>
-            <input value={q.min_copies} onChange={e => setQ({ ...q, min_copies: e.target.value })}
-              placeholder="Örn: 5000"
-              style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #E5EAF0", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
-          </div>
-
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", display: "block", marginBottom: 6 }}>Teklif Geçerliliği (Gün)</label>
             <select value={q.valid_days} onChange={e => setQ({ ...q, valid_days: e.target.value })}
